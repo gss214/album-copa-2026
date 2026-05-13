@@ -44,6 +44,35 @@ class TrocasOut(BaseModel):
     repetidas: List[str]
 
 
+class GroupProgress(BaseModel):
+    group: str
+    coladas: int
+    total: int
+    pct: float
+
+
+class TeamProgress(BaseModel):
+    section_code: str
+    section_name: str
+    group_name: str
+    coladas: int
+    total: int
+    pct: float
+
+
+class MostRepeated(BaseModel):
+    code: str
+    section_name: str
+    quantity: int
+
+
+class StatsOut(BaseModel):
+    most_repeated: Optional[MostRepeated]
+    closest_team: Optional[TeamProgress]
+    closest_group: Optional[GroupProgress]
+    group_progress: List[GroupProgress]
+
+
 def _to_out(s: models.Sticker) -> StickerOut:
     return StickerOut(
         id=s.id,
@@ -87,7 +116,11 @@ def update_sticker(code: str, body: StickerUpdate, db: Session = Depends(get_db)
 
 @router.get("/summary", response_model=SummaryOut)
 def get_summary(db: Session = Depends(get_db)):
-    all_stickers = db.query(models.Sticker).all()
+    all_stickers = (
+        db.query(models.Sticker)
+        .filter(models.Sticker.group_name != "Raras")
+        .all()
+    )
     total = len(all_stickers)
     coladas = sum(1 for s in all_stickers if s.quantity >= 1)
     faltam = total - coladas
@@ -102,10 +135,94 @@ def get_summary(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/stats", response_model=StatsOut)
+def get_stats(db: Session = Depends(get_db)):
+    stickers = (
+        db.query(models.Sticker)
+        .filter(models.Sticker.group_name != "Raras")
+        .all()
+    )
+
+    # Most repeated sticker (quantity > 1)
+    repeated = [s for s in stickers if s.quantity > 1]
+    most_rep = max(repeated, key=lambda s: s.quantity, default=None)
+    most_repeated = (
+        MostRepeated(code=most_rep.code, section_name=most_rep.section_name, quantity=most_rep.quantity)
+        if most_rep else None
+    )
+
+    # Group progress
+    group_map: dict = {}
+    for s in stickers:
+        g = s.group_name
+        if g not in group_map:
+            group_map[g] = {"coladas": 0, "total": 0}
+        group_map[g]["total"] += 1
+        if s.quantity >= 1:
+            group_map[g]["coladas"] += 1
+
+    GROUP_ORDER = [
+        "FWC",
+        "Grupo A", "Grupo B", "Grupo C", "Grupo D",
+        "Grupo E", "Grupo F", "Grupo G", "Grupo H",
+        "Grupo I", "Grupo J", "Grupo K", "Grupo L",
+        "Coca-Cola",
+    ]
+
+    group_progress = sorted(
+        [
+            GroupProgress(
+                group=g,
+                coladas=v["coladas"],
+                total=v["total"],
+                pct=round(v["coladas"] / v["total"] * 100, 1) if v["total"] else 0.0,
+            )
+            for g, v in group_map.items()
+        ],
+        key=lambda x: GROUP_ORDER.index(x.group) if x.group in GROUP_ORDER else 99,
+    )
+
+    # Team progress
+    team_map: dict = {}
+    for s in stickers:
+        key = f"{s.section_code}__{s.section_name}"
+        if key not in team_map:
+            team_map[key] = {
+                "section_code": s.section_code,
+                "section_name": s.section_name,
+                "group_name": s.group_name,
+                "coladas": 0,
+                "total": 0,
+            }
+        team_map[key]["total"] += 1
+        if s.quantity >= 1:
+            team_map[key]["coladas"] += 1
+
+    incomplete_teams = [t for t in team_map.values() if t["coladas"] < t["total"]]
+    closest = max(incomplete_teams, key=lambda t: t["coladas"] / t["total"] if t["total"] else 0, default=None)
+    closest_team = (
+        TeamProgress(pct=round(closest["coladas"] / closest["total"] * 100, 1), **closest)
+        if closest else None
+    )
+
+    incomplete_groups = [g for g in group_progress if g.coladas < g.total]
+    closest_group = max(incomplete_groups, key=lambda g: g.pct, default=None)
+
+    return StatsOut(
+        most_repeated=most_repeated,
+        closest_team=closest_team,
+        closest_group=closest_group,
+        group_progress=group_progress,
+    )
+
+
 @router.get("/trocas", response_model=TrocasOut)
 def get_trocas(db: Session = Depends(get_db)):
     all_stickers = (
-        db.query(models.Sticker).order_by(models.Sticker.sort_order).all()
+        db.query(models.Sticker)
+        .filter(models.Sticker.group_name != "Raras")
+        .order_by(models.Sticker.sort_order)
+        .all()
     )
     faltam = [s.code for s in all_stickers if s.quantity == 0]
     repetidas = [

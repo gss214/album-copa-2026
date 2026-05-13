@@ -4,8 +4,9 @@ FIFA World Cup 2026 sticker album tracker — mark what you have, track what's m
 
 ## Features
 
-- **Dashboard** — total stickers, pasted, missing, completion % and duplicate count
-- **Album** — visual grid per team with click-to-mark stickers (right-click to unmark)
+- **Dashboard** — total stickers, pasted, missing, completion %, duplicates, most repeated sticker, closest team/group to complete, and progress bars per group
+- **Album** — visual sticker grid per team; click to mark, right-click to unmark; filter by group, status (incomplete, complete, not started, with duplicates) and free-text search (accent-insensitive)
+- **Rare stickers** — dedicated page for the 20 rare players, each available in 4 variants: Gold, Silver, Bronze and Lilac
 - **Trade lists** — auto-generated "missing" and "duplicates" lists formatted for WhatsApp
 
 ## Stack
@@ -36,6 +37,12 @@ The database is seeded automatically on first run with all **994 stickers** from
 | FIFA World Cup History| FWC09 – FWC19 (11)    |
 | Coca-Cola             | CC1 – CC14 (14)       |
 | **Total**             | **994**               |
+
+### Rare stickers (not counted in the main total)
+
+20 players × 4 variants (Gold, Silver, Bronze, Lilac) = **80 rare stickers**
+
+Hakimi · Haaland · Davies · Bellingham · Caicedo · Ronaldo · Doku · Díaz · Gakpo · Jiménez · Yamal · Mbappé · Messi · Modrić · Pulisic · Salah · Son · Valverde · Vinícius Jr. · Wirtz
 
 ## License
 

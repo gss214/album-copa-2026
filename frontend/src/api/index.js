@@ -26,4 +26,5 @@ export const api = {
     }),
   getSummary: () => request("/summary"),
   getTrocas: () => request("/trocas"),
+  getStats: () => request("/stats"),
 };

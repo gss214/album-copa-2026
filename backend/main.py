@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, SessionLocal
 import models
-from seed import seed_stickers
+from seed import seed_stickers, seed_rare_stickers
 from routers import stickers
 
 models.Base.metadata.create_all(bind=engine)
@@ -28,6 +28,7 @@ def on_startup():
     db = SessionLocal()
     try:
         seed_stickers(db)
+        seed_rare_stickers(db)
     finally:
         db.close()
 

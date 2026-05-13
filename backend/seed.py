@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Tuple
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import models
 
@@ -94,6 +95,63 @@ def seed_stickers(db: Session) -> None:
                 section_name=section_name,
                 group_name=group_name,
                 number=number,
+                quantity=0,
+                sort_order=sort_order,
+            )
+            db.add(sticker)
+            sort_order += 1
+
+    db.commit()
+
+
+# (prefix, player_name, country_code)
+RARE_PLAYERS: List[Tuple[str, str, str]] = [
+    ("R01", "Achraf Hakimi", "MAR"),
+    ("R02", "Erling Haaland", "NOR"),
+    ("R03", "Alphonso Davies", "CAN"),
+    ("R04", "Jude Bellingham", "ENG"),
+    ("R05", "Moisés Caicedo", "ECU"),
+    ("R06", "Cristiano Ronaldo", "POR"),
+    ("R07", "Jérémy Doku", "BEL"),
+    ("R08", "Luis Díaz", "COL"),
+    ("R09", "Cody Gakpo", "NED"),
+    ("R10", "Raúl Jiménez", "MEX"),
+    ("R11", "Lamine Yamal", "ESP"),
+    ("R12", "Kylian Mbappé", "FRA"),
+    ("R13", "Lionel Messi", "ARG"),
+    ("R14", "Luka Modrić", "CRO"),
+    ("R15", "Christian Pulisic", "USA"),
+    ("R16", "Mohamed Salah", "EGY"),
+    ("R17", "Son Heung-min", "KOR"),
+    ("R18", "Federico Valverde", "URU"),
+    ("R19", "Vinícius Júnior", "BRA"),
+    ("R20", "Florian Wirtz", "GER"),
+]
+
+RARE_VARIANTS: List[Tuple[str, str]] = [
+    ("O", "Ouro"),
+    ("P", "Prata"),
+    ("B", "Bronze"),
+    ("L", "Lilás"),
+]
+
+
+def seed_rare_stickers(db: Session) -> None:
+    if db.query(models.Sticker).filter(models.Sticker.code == "R01O").first():
+        return
+
+    max_order = db.query(func.max(models.Sticker.sort_order)).scalar() or 0
+    sort_order = max_order + 1
+
+    for prefix, player_name, country_code in RARE_PLAYERS:
+        for variant_code, variant_name in RARE_VARIANTS:
+            code = f"{prefix}{variant_code}"
+            sticker = models.Sticker(
+                code=code,
+                section_code=prefix,
+                section_name=player_name,
+                group_name="Raras",
+                number=variant_name,
                 quantity=0,
                 sort_order=sort_order,
             )

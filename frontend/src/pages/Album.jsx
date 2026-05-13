@@ -11,6 +11,11 @@ const GROUPS = [
   "Coca-Cola",
 ];
 
+const EXCLUDED_GROUPS = new Set(["Raras"]);
+
+const normalize = (s) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
 function StickerTile({ sticker, onUpdate }) {
   const [loading, setLoading] = useState(false);
 
@@ -39,9 +44,7 @@ function StickerTile({ sticker, onUpdate }) {
   const cls =
     sticker.quantity === 0
       ? "bg-zinc-800/70 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-400"
-      : sticker.quantity === 1
-      ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30 hover:bg-emerald-500/30"
-      : "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30 hover:bg-amber-500/30";
+      : "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30 hover:bg-emerald-500/30";
 
   return (
     <button
@@ -138,9 +141,31 @@ function GroupSection({ groupName, teamMap, onUpdate }) {
   );
 }
 
+const STATUS_FILTERS = [
+  { key: "all", label: "Todas" },
+  { key: "incomplete", label: "Incompletas" },
+  { key: "complete", label: "Completas" },
+  { key: "not_started", label: "Não iniciadas" },
+  { key: "repeated", label: "Com repetidas" },
+];
+
+function teamStatus(stickers) {
+  const coladas = stickers.filter((s) => s.quantity >= 1).length;
+  if (coladas === 0) return "not_started";
+  if (coladas === stickers.length) return "complete";
+  return "incomplete";
+}
+
+function teamHasRepeated(stickers) {
+  return stickers.some((s) => s.quantity > 1);
+}
+
+
 export default function Album() {
   const [stickers, setStickers] = useState([]);
   const [group, setGroup] = useState("Todos");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -161,23 +186,54 @@ export default function Album() {
 
   // group_name → section_key → stickers[]
   const grouped = useMemo(() => {
-    const filtered =
-      group === "Todos" ? stickers : stickers.filter((s) => s.group_name === group);
-
+    const q = search.trim().toLowerCase();
     const byGroup = new Map();
-    for (const s of filtered) {
-      if (!byGroup.has(s.group_name)) byGroup.set(s.group_name, new Map());
-      const teamKey = `${s.section_code}__${s.section_name}`;
-      const byTeam = byGroup.get(s.group_name);
-      if (!byTeam.has(teamKey)) byTeam.set(teamKey, []);
-      byTeam.get(teamKey).push(s);
-    }
-    return byGroup;
-  }, [stickers, group]);
+    const groupFiltered = stickers.filter((s) =>
+      !EXCLUDED_GROUPS.has(s.group_name) &&
+      (group === "Todos" || s.group_name === group)
+    );
 
-  const coladas = stickers.filter((s) => s.quantity >= 1).length;
-  const total = stickers.length;
+    // Build all teams, applying search at sticker level
+    const allTeams = new Map();
+    for (const s of groupFiltered) {
+      const nq = normalize(q);
+      const matchesSearch = !q ||
+        normalize(s.code).includes(nq) ||
+        normalize(s.section_name).includes(nq) ||
+        normalize(s.group_name).includes(nq) ||
+        normalize(s.section_code).includes(nq);
+      if (!matchesSearch) continue;
+
+      const teamKey = `${s.group_name}__${s.section_code}__${s.section_name}`;
+      if (!allTeams.has(teamKey)) allTeams.set(teamKey, []);
+      allTeams.get(teamKey).push(s);
+    }
+
+    // Apply status filter
+    for (const [teamKey, teamStickers] of allTeams.entries()) {
+      if (statusFilter === "repeated" && !teamHasRepeated(teamStickers)) continue;
+      if (statusFilter !== "all" && statusFilter !== "repeated" && teamStatus(teamStickers) !== statusFilter) continue;
+      const groupName = teamStickers[0].group_name;
+      if (!byGroup.has(groupName)) byGroup.set(groupName, new Map());
+      byGroup.get(groupName).set(teamKey, teamStickers);
+    }
+
+    return byGroup;
+  }, [stickers, group, statusFilter, search]);
+
+  const mainStickers = stickers.filter((s) => !EXCLUDED_GROUPS.has(s.group_name));
+  const coladas = mainStickers.filter((s) => s.quantity >= 1).length;
+  const total = mainStickers.length;
   const pct = total ? Math.round((coladas / total) * 100) : 0;
+
+  const statusCls = {
+    all: "bg-zinc-700 text-zinc-100",
+    incomplete: "bg-amber-400 text-zinc-900",
+    complete: "bg-sky-500 text-white",
+    not_started: "bg-zinc-600 text-zinc-100",
+    repeated: "bg-emerald-600 text-white",
+  };
+  const statusInactive = "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800";
 
   return (
     <div className="flex flex-col gap-6">
@@ -197,6 +253,41 @@ export default function Album() {
             <span className="text-amber-400 font-semibold tabular-nums">{pct}%</span>
           </div>
         )}
+      </div>
+
+      {/* Busca */}
+      <div className="relative max-w-sm">
+        <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar time, grupo ou figurinha..."
+          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-colors"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+          >
+            <i className="bi bi-x text-sm" />
+          </button>
+        )}
+      </div>
+
+      {/* Filtros de status */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setStatusFilter(f.key)}
+            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
+              statusFilter === f.key ? statusCls[f.key] : statusInactive
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Filtro de grupo */}
@@ -222,6 +313,9 @@ export default function Album() {
       {/* Conteúdo */}
       {!loading && (
         <div className="flex flex-col gap-8">
+          {grouped.size === 0 && (
+            <p className="text-zinc-600 text-sm">Nenhuma seleção encontrada com esse filtro.</p>
+          )}
           {[...grouped.entries()].map(([groupName, teamMap]) => (
             <GroupSection
               key={groupName}

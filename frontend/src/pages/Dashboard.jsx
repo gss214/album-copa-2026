@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/api";
 import { Card } from "@/components/ui/card";
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
-
-const COLORS = ["#34d399", "#f87171"];
+import { LOGOS } from "@/lib/logos";
 
 function StatCard({ icon, label, value, sub, color = "text-zinc-100" }) {
   return (
@@ -49,37 +45,50 @@ function ProgressRing({ pct }) {
   );
 }
 
-const RTOOLTIP = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
+function GroupProgressBar({ group, coladas, total, pct }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
-      <span className="text-zinc-300">{payload[0].name}: </span>
-      <span className="font-bold text-zinc-100">{payload[0].value}</span>
+    <div className="flex items-center gap-3">
+      <span className="text-zinc-400 text-xs w-16 shrink-0">{group}</span>
+      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-zinc-500 text-xs tabular-nums w-16 text-right shrink-0">
+        {coladas}/{total}
+      </span>
     </div>
   );
-};
+}
+
+function HighlightRow({ icon, iconColor, label, children }) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-zinc-800/60 last:border-0">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-zinc-800 ${iconColor}`}>
+        <i className={`bi ${icon} text-sm`} />
+      </div>
+      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+        <span className="text-zinc-500 text-xs">{label}</span>
+        <div className="text-zinc-100 text-sm font-medium">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
+  const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.getSummary()
-      .then(setSummary)
+    Promise.all([api.getSummary(), api.getStats()])
+      .then(([s, st]) => { setSummary(s); setStats(st); })
       .catch((e) => setError(e.message));
   }, []);
 
-  if (error) {
-    return <p className="text-rose-400 text-sm">{error}</p>;
-  }
-  if (!summary) {
-    return <p className="text-zinc-500 text-sm">Carregando...</p>;
-  }
-
-  const pieData = [
-    { name: "Coladas", value: summary.coladas },
-    { name: "Faltam", value: summary.faltam },
-  ];
+  if (error) return <p className="text-rose-400 text-sm">{error}</p>;
+  if (!summary || !stats) return <p className="text-zinc-500 text-sm">Carregando...</p>;
 
   return (
     <div className="flex flex-col gap-8">
@@ -91,36 +100,17 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard icon="bi-collection" label="Total do álbum" value={summary.total} />
-        <StatCard
-          icon="bi-check2-square"
-          label="Coladas"
-          value={summary.coladas}
-          color="text-emerald-400"
-        />
-        <StatCard
-          icon="bi-x-square"
-          label="Faltam"
-          value={summary.faltam}
-          color="text-rose-400"
-        />
-        <StatCard
-          icon="bi-percent"
-          label="Conclusão"
-          value={`${summary.percentual}%`}
-          color="text-amber-400"
-        />
-        <StatCard
-          icon="bi-layers"
-          label="Repetidas"
-          value={summary.repetidas}
-          sub="figurinhas extras"
-          color="text-sky-400"
-        />
+        <StatCard icon="bi-check2-square" label="Coladas" value={summary.coladas} color="text-emerald-400" />
+        <StatCard icon="bi-x-square" label="Faltam" value={summary.faltam} color="text-rose-400" />
+        <StatCard icon="bi-percent" label="Conclusão" value={`${summary.percentual}%`} color="text-amber-400" />
+        <StatCard icon="bi-layers" label="Repetidas" value={summary.repetidas} sub="figurinhas extras" color="text-sky-400" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Progresso geral */}
         <Card className="p-6 flex flex-col items-center gap-4">
           <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider self-start">
             Progresso geral
@@ -138,35 +128,72 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        <Card className="p-6 flex flex-col gap-4">
-          <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
-            Distribuição
+        {/* Destaques */}
+        <Card className="p-6 flex flex-col gap-1">
+          <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-2">
+            Destaques
           </span>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i]} />
-                ))}
-              </Pie>
-              <Tooltip content={<RTOOLTIP />} />
-              <Legend
-                formatter={(value) => (
-                  <span className="text-zinc-400 text-xs">{value}</span>
+
+          {stats.most_repeated ? (
+            <HighlightRow icon="bi-layers-fill" iconColor="text-sky-400" label="Figurinha mais repetida">
+              <span className="font-mono text-sky-300 text-xs bg-zinc-800 px-1.5 py-0.5 rounded mr-2">
+                {stats.most_repeated.code}
+              </span>
+              {stats.most_repeated.section_name}
+              <span className="text-amber-400 ml-2 text-xs">×{stats.most_repeated.quantity}</span>
+            </HighlightRow>
+          ) : (
+            <HighlightRow icon="bi-layers-fill" iconColor="text-sky-400" label="Figurinha mais repetida">
+              <span className="text-zinc-600">Nenhuma ainda</span>
+            </HighlightRow>
+          )}
+
+          {stats.closest_team ? (
+            <HighlightRow icon="bi-trophy-fill" iconColor="text-amber-400" label="Time mais perto de completar">
+              <div className="flex items-center gap-2">
+                {LOGOS[stats.closest_team.section_code] && (
+                  <img src={LOGOS[stats.closest_team.section_code]} className="w-5 h-5 object-contain" />
                 )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+                <span>{stats.closest_team.section_name}</span>
+                <span className="text-zinc-500 text-xs tabular-nums">
+                  {stats.closest_team.coladas}/{stats.closest_team.total}
+                  <span className="text-emerald-400 ml-1">({stats.closest_team.pct}%)</span>
+                </span>
+              </div>
+            </HighlightRow>
+          ) : (
+            <HighlightRow icon="bi-trophy-fill" iconColor="text-amber-400" label="Time mais perto de completar">
+              <span className="text-zinc-600">Nenhum ainda</span>
+            </HighlightRow>
+          )}
+
+          {stats.closest_group ? (
+            <HighlightRow icon="bi-star-fill" iconColor="text-emerald-400" label="Grupo mais perto de completar">
+              <span>{stats.closest_group.group}</span>
+              <span className="text-zinc-500 text-xs tabular-nums ml-2">
+                {stats.closest_group.coladas}/{stats.closest_group.total}
+                <span className="text-emerald-400 ml-1">({stats.closest_group.pct}%)</span>
+              </span>
+            </HighlightRow>
+          ) : (
+            <HighlightRow icon="bi-star-fill" iconColor="text-emerald-400" label="Grupo mais perto de completar">
+              <span className="text-zinc-600">Nenhum ainda</span>
+            </HighlightRow>
+          )}
         </Card>
       </div>
+
+      {/* Progresso por grupo */}
+      <Card className="p-6 flex flex-col gap-4">
+        <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
+          Progresso por grupo
+        </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-1">
+          {stats.group_progress.map((g) => (
+            <GroupProgressBar key={g.group} {...g} />
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
