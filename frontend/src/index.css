@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-app: var(--color-zinc-950);
+  --color-surface: var(--color-zinc-900);
+  --color-surface-2: var(--color-zinc-800);
+  --color-border-default: var(--color-zinc-800);
+  --color-text-primary: var(--color-zinc-100);
+  --color-text-secondary: var(--color-zinc-400);
+  --color-text-muted: var(--color-zinc-500);
+
+  --color-positive: var(--color-emerald-400);
+  --color-negative: var(--color-rose-400);
+  --color-warning: var(--color-amber-400);
+}
+
+html,
+body {
+  font-feature-settings: "tnum" on, "lnum" on;
+}
+
+body {
+  background-color: var(--color-zinc-950);
+  color: var(--color-zinc-100);
+}
