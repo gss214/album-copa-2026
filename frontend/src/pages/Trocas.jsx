@@ -3,7 +3,7 @@ import { api } from "@/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-function CopyCard({ title, icon, color, items, buildText }) {
+function CopyCard({ title, icon, color, items, count, buildText }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -13,6 +13,8 @@ function CopyCard({ title, icon, color, items, buildText }) {
     });
   };
 
+  const displayCount = count ?? items.length;
+
   return (
     <Card className="flex flex-col">
       <CardHeader className="pb-3">
@@ -20,7 +22,7 @@ function CopyCard({ title, icon, color, items, buildText }) {
           <CardTitle className="flex items-center gap-2 text-base">
             <i className={`bi ${icon} ${color}`} />
             {title}
-            <span className={`text-sm font-normal ${color}`}>({items.length})</span>
+            <span className={`text-sm font-normal ${color}`}>({displayCount})</span>
           </CardTitle>
           <Button variant="secondary" size="sm" onClick={handleCopy} disabled={items.length === 0}>
             <i className={`bi ${copied ? "bi-check2" : "bi-clipboard"}`} />
@@ -50,13 +52,21 @@ function buildFaltamText(codes) {
   return `*FIGURINHAS QUE FALTAM (${codes.length}):*\n\n` + chunks.join("\n");
 }
 
+function countTotalExtras(items) {
+  return items.reduce((sum, item) => {
+    const m = item.match(/\((\d+)x\)/);
+    return sum + (m ? parseInt(m[1], 10) : 1);
+  }, 0);
+}
+
 function buildRepetidaText(items) {
   if (!items.length) return "";
+  const total = countTotalExtras(items);
   const chunks = [];
   for (let i = 0; i < items.length; i += 6) {
     chunks.push(items.slice(i, i + 6).join("  "));
   }
-  return `*FIGURINHAS REPETIDAS (${items.length}):*\n\n` + chunks.join("\n");
+  return `*FIGURINHAS REPETIDAS (${total}):*\n\n` + chunks.join("\n");
 }
 
 export default function Trocas() {
@@ -115,6 +125,7 @@ export default function Trocas() {
             icon="bi-layers"
             color="text-sky-400"
             items={trocas.repetidas}
+            count={countTotalExtras(trocas.repetidas)}
             buildText={buildRepetidaText}
           />
         </div>

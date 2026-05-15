@@ -5,10 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, SessionLocal
 import models
-from seed import seed_stickers, seed_rare_stickers
+from seed import seed_stickers, seed_rare_stickers, seed_player_names
 from routers import stickers
 
 models.Base.metadata.create_all(bind=engine)
+
+# Add player_name column to existing DBs that predate this field.
+with engine.connect() as _conn:
+    from sqlalchemy import text as _text
+    cols = [r[1] for r in _conn.execute(_text("PRAGMA table_info(stickers)")).fetchall()]
+    if "player_name" not in cols:
+        _conn.execute(_text("ALTER TABLE stickers ADD COLUMN player_name TEXT DEFAULT ''"))
+        _conn.commit()
 
 app = FastAPI(title="Album Copa 2026 API")
 
@@ -29,6 +37,7 @@ def on_startup():
     try:
         seed_stickers(db)
         seed_rare_stickers(db)
+        seed_player_names(db)
     finally:
         db.close()
 

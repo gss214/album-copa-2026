@@ -19,6 +19,7 @@ class StickerOut(BaseModel):
     section_name: str
     group_name: str
     number: str
+    player_name: str
     quantity: int
     sort_order: int
     status: str
@@ -95,6 +96,7 @@ def _to_out(s: models.Sticker) -> StickerOut:
         section_name=s.section_name,
         group_name=s.group_name,
         number=s.number,
+        player_name=s.player_name or "",
         quantity=s.quantity,
         sort_order=s.sort_order,
         status="Tenho" if s.quantity >= 1 else "Falta",

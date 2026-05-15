@@ -15,3 +15,4 @@ class Sticker(Base):
     number = Column(String, nullable=False)
     quantity = Column(Integer, default=0, nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+    player_name = Column(String, nullable=True, default="")

@@ -41,8 +41,12 @@ function StickerTile({ sticker, onUpdate }) {
     }
   };
 
-  const cls =
-    sticker.quantity === 0
+  const isSpecial = (sticker.number === "1" || sticker.number === "13") && sticker.section_code !== "FWC" && sticker.section_code !== "CC";
+  const cls = isSpecial
+    ? sticker.quantity === 0
+      ? "bg-sky-900/40 text-sky-600 hover:bg-sky-900/60 hover:text-sky-400"
+      : "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 hover:bg-sky-500/30"
+    : sticker.quantity === 0
       ? "bg-zinc-800/70 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-400"
       : "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30 hover:bg-emerald-500/30";
 
@@ -51,10 +55,15 @@ function StickerTile({ sticker, onUpdate }) {
       onClick={increment}
       onContextMenu={decrement}
       disabled={loading}
-      title={`${sticker.code} — clique: +1 | clique direito: -1`}
-      className={`relative flex items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-9 w-full ${cls}`}
+      title={sticker.player_name ? `${sticker.code} · ${sticker.player_name}` : sticker.code}
+      className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls}`}
     >
-      {sticker.number}
+      <span className="leading-none">{sticker.number}</span>
+      {sticker.player_name && (
+        <span className="text-[8px] font-sans font-normal leading-tight text-center truncate w-full px-0.5 opacity-70">
+          {sticker.player_name.split(" ").slice(-1)[0]}
+        </span>
+      )}
       {sticker.quantity > 1 && (
         <span className="absolute -top-1 -right-1 bg-amber-500 text-zinc-900 text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center leading-none">
           {sticker.quantity}
@@ -313,7 +322,8 @@ export default function Album() {
         normalize(s.code).includes(nq) ||
         normalize(s.section_name).includes(nq) ||
         normalize(s.group_name).includes(nq) ||
-        normalize(s.section_code).includes(nq);
+        normalize(s.section_code).includes(nq) ||
+        normalize(s.player_name || "").includes(nq);
       if (!matchesSearch) continue;
 
       const teamKey = `${s.group_name}__${s.section_code}__${s.section_name}`;
@@ -415,7 +425,7 @@ export default function Album() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar time, grupo ou figurinha..."
+          placeholder="Buscar time, jogador, grupo ou figurinha..."
           className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-colors"
         />
         {search && (
