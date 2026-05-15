@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api } from "@/api";
 import { Card } from "@/components/ui/card";
 import { LOGOS } from "@/lib/logos";
@@ -73,6 +73,77 @@ function HighlightRow({ icon, iconColor, label, children }) {
         <div className="text-zinc-100 text-sm font-medium">{children}</div>
       </div>
     </div>
+  );
+}
+
+const ALBUM_TYPES = [
+  { key: "brochura", label: "Brochura", price: 24.90 },
+  { key: "capadura", label: "Capa Dura", price: 77.40 },
+];
+const PACKET_PRICE = 7.00;
+const PACKET_SIZE = 7;
+
+const fmt = (v) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function CostCard({ summary }) {
+  const [albumType, setAlbumType] = useState("brochura");
+  const album = ALBUM_TYPES.find((a) => a.key === albumType);
+
+  const cost = useMemo(() => {
+    const totalOwned = summary.coladas + summary.repetidas;
+    const packets = Math.ceil(totalOwned / PACKET_SIZE);
+    const packetsCost = packets * PACKET_PRICE;
+    const total = album.price + packetsCost;
+    return { totalOwned, packets, packetsCost, total };
+  }, [summary, album]);
+
+  return (
+    <Card className="p-6 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
+          Estimativa de gastos
+        </span>
+        <div className="flex gap-1">
+          {ALBUM_TYPES.map((a) => (
+            <button
+              key={a.key}
+              onClick={() => setAlbumType(a.key)}
+              className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
+                albumType === a.key
+                  ? "bg-zinc-100 text-zinc-900"
+                  : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-zinc-500 text-xs">Figurinhas em mãos</span>
+          <span className="text-zinc-100 text-xl font-bold tabular-nums">{cost.totalOwned}</span>
+          <span className="text-zinc-600 text-xs">{summary.coladas} únicas + {summary.repetidas} extras</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-zinc-500 text-xs">Pacotinhos</span>
+          <span className="text-zinc-100 text-xl font-bold tabular-nums">~{cost.packets}</span>
+          <span className="text-zinc-600 text-xs">{fmt(PACKET_PRICE)} cada · {PACKET_SIZE} fig.</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-zinc-500 text-xs">Gasto em pacotinhos</span>
+          <span className="text-emerald-400 text-xl font-bold tabular-nums">{fmt(cost.packetsCost)}</span>
+          <span className="text-zinc-600 text-xs">estimativa mínima</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-zinc-500 text-xs">Total (álbum + pacs.)</span>
+          <span className="text-amber-400 text-xl font-bold tabular-nums">{fmt(cost.total)}</span>
+          <span className="text-zinc-600 text-xs">álbum {album.label}: {fmt(album.price)}</span>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -182,6 +253,9 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {/* Estimativa de gastos */}
+      <CostCard summary={summary} />
 
       {/* Progresso por grupo */}
       <Card className="p-6 flex flex-col gap-4">

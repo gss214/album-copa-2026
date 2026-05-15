@@ -31,6 +31,20 @@ class StickerUpdate(BaseModel):
     quantity: int
 
 
+class BulkItem(BaseModel):
+    code: str
+    quantity: int
+
+
+class BulkUpdate(BaseModel):
+    items: List[BulkItem]
+
+
+class BulkResult(BaseModel):
+    updated: int
+    not_found: List[str]
+
+
 class SummaryOut(BaseModel):
     total: int
     coladas: int
@@ -99,6 +113,30 @@ def list_stickers(
     if section_code:
         q = q.filter(models.Sticker.section_code == section_code)
     return [_to_out(s) for s in q.all()]
+
+
+@router.patch("/stickers/bulk", response_model=BulkResult)
+def bulk_update_stickers(body: BulkUpdate, db: Session = Depends(get_db)):
+    if not body.items:
+        raise HTTPException(status_code=400, detail="Lista vazia")
+    codes = [item.code for item in body.items]
+    sticker_map = {
+        s.code: s
+        for s in db.query(models.Sticker).filter(models.Sticker.code.in_(codes)).all()
+    }
+    not_found = []
+    updated = 0
+    for item in body.items:
+        if item.quantity < 0:
+            raise HTTPException(status_code=400, detail=f"Quantidade negativa: {item.code}")
+        s = sticker_map.get(item.code)
+        if not s:
+            not_found.append(item.code)
+            continue
+        s.quantity = item.quantity
+        updated += 1
+    db.commit()
+    return BulkResult(updated=updated, not_found=not_found)
 
 
 @router.patch("/stickers/{code}", response_model=StickerOut)

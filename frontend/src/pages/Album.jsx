@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { api } from "@/api";
 import { Card } from "@/components/ui/card";
 import { LOGOS } from "@/lib/logos";
@@ -161,6 +161,43 @@ function teamHasRepeated(stickers) {
 }
 
 
+function ImportConfirmModal({ onConfirm, onCancel, count }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+            <i className="bi bi-exclamation-triangle-fill" />
+          </div>
+          <div>
+            <p className="text-zinc-100 font-semibold text-sm">Substituir dados?</p>
+            <p className="text-zinc-500 text-xs mt-0.5">
+              Você já tem figurinhas marcadas. O CSV importado irá substituir todas as quantidades.
+            </p>
+          </div>
+        </div>
+        <p className="text-zinc-400 text-xs bg-zinc-800 rounded-lg px-3 py-2">
+          <span className="text-zinc-100 font-semibold">{count} figurinhas</span> serão atualizadas.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-xs rounded-lg bg-amber-500 text-zinc-900 hover:bg-amber-400 transition-colors font-semibold"
+          >
+            Importar assim mesmo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Album() {
   const [stickers, setStickers] = useState([]);
   const [group, setGroup] = useState("Todos");
@@ -168,6 +205,10 @@ export default function Album() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     api
@@ -182,6 +223,76 @@ export default function Album() {
     setStickers((prev) =>
       prev.map((s) => (s.code === updated.code ? updated : s))
     );
+  };
+
+  const handleExport = () => {
+    const rows = ["code,quantity", ...stickers.map((s) => `${s.code},${s.quantity}`)];
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "album-copa-2026.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCSV = (text) => {
+    const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) throw new Error("Arquivo vazio.");
+    const header = lines[0].toLowerCase();
+    if (!header.includes("code") || !header.includes("quantity"))
+      throw new Error("Formato inválido. O CSV deve ter colunas 'code' e 'quantity'.");
+    const items = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(",");
+      if (parts.length < 2) throw new Error(`Linha ${i + 1} inválida: "${lines[i]}"`);
+      const code = parts[0].trim();
+      const quantity = parseInt(parts[1].trim(), 10);
+      if (!code) throw new Error(`Código vazio na linha ${i + 1}.`);
+      if (isNaN(quantity) || quantity < 0)
+        throw new Error(`Quantidade inválida na linha ${i + 1}: "${parts[1]}"`);
+      items.push({ code, quantity });
+    }
+    if (!items.length) throw new Error("Nenhum dado encontrado no CSV.");
+    return items;
+  };
+
+  const applyImport = async (items) => {
+    setImporting(true);
+    setImportError(null);
+    try {
+      await api.bulkUpdate(items);
+      const updated = await api.getStickers();
+      setStickers(updated);
+    } catch (e) {
+      setImportError(e.message);
+    } finally {
+      setImporting(false);
+      setPendingImport(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const items = parseCSV(ev.target.result);
+        const hasData = stickers.some((s) => s.quantity > 0);
+        if (hasData) {
+          setPendingImport(items);
+        } else {
+          applyImport(items);
+        }
+      } catch (err) {
+        setImportError(err.message);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
   };
 
   // group_name → section_key → stickers[]
@@ -237,6 +348,25 @@ export default function Album() {
 
   return (
     <div className="flex flex-col gap-6">
+      {pendingImport && (
+        <ImportConfirmModal
+          count={pendingImport.length}
+          onConfirm={() => applyImport(pendingImport)}
+          onCancel={() => {
+            setPendingImport(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+        />
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -245,14 +375,36 @@ export default function Album() {
             Clique na figurinha para marcar · clique direito para desmarcar
           </p>
         </div>
-        {total > 0 && (
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <span className="text-emerald-400 font-semibold tabular-nums">{coladas}</span>
-            <span>/ {total}</span>
-            <span className="text-zinc-600">•</span>
-            <span className="text-amber-400 font-semibold tabular-nums">{pct}%</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {total > 0 && (
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <span className="text-emerald-400 font-semibold tabular-nums">{coladas}</span>
+              <span>/ {total}</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-amber-400 font-semibold tabular-nums">{pct}%</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={loading || stickers.length === 0}
+              title="Exportar CSV"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors font-medium disabled:opacity-40"
+            >
+              <i className="bi bi-download" />
+              Exportar
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              title="Importar CSV"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors font-medium disabled:opacity-40"
+            >
+              <i className="bi bi-upload" />
+              {importing ? "Importando..." : "Importar"}
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Busca */}
@@ -308,6 +460,12 @@ export default function Album() {
       </div>
 
       {error && <p className="text-rose-400 text-sm">{error}</p>}
+      {importError && (
+        <p className="text-rose-400 text-sm flex items-center gap-2">
+          <i className="bi bi-exclamation-circle" />
+          {importError}
+        </p>
+      )}
       {loading && <p className="text-zinc-500 text-sm">Carregando...</p>}
 
       {/* Conteúdo */}

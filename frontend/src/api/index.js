@@ -24,6 +24,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ quantity }),
     }),
+  bulkUpdate: (items) =>
+    request("/stickers/bulk", {
+      method: "PATCH",
+      body: JSON.stringify({ items }),
+    }),
   getSummary: () => request("/summary"),
   getTrocas: () => request("/trocas"),
   getStats: () => request("/stats"),
