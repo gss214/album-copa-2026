@@ -231,7 +231,8 @@ export default function Album() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "album-copa-2026.csv";
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.download = `album-copa-2026_${ts}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
