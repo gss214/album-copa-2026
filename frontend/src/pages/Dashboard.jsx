@@ -211,7 +211,7 @@ export default function Dashboard() {
                 {stats.most_repeated.code}
               </span>
               {stats.most_repeated.section_name}
-              <span className="text-amber-400 ml-2 text-xs">×{stats.most_repeated.quantity}</span>
+              <span className="text-amber-400 ml-2 text-xs">×{stats.most_repeated.quantity - 1}</span>
             </HighlightRow>
           ) : (
             <HighlightRow icon="bi-layers-fill" iconColor="text-sky-400" label="Figurinha mais repetida">
