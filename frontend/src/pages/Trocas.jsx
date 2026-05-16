@@ -43,13 +43,38 @@ function CopyCard({ title, icon, color, items, count, buildText }) {
   );
 }
 
+// Sections where 1 and 13 are not "Escudo/Perfilada" (header/logo stickers)
+const NON_TEAM_SECTIONS = new Set(["FWC", "CC"]);
+const SPECIAL_NUMBERS = new Set(["1", "13"]);
+
+function fmtNum(num, sectionCode) {
+  return SPECIAL_NUMBERS.has(num) && !NON_TEAM_SECTIONS.has(sectionCode)
+    ? `${num}✨`
+    : num;
+}
+
+// Groups sticker codes by their section prefix.
+// Input:  ["MEX1", "MEX4", "KOR11"]
+// Output: Map { "MEX" => ["1","4"], "KOR" => ["11"] }
+function groupBySection(codes) {
+  const map = new Map();
+  for (const code of codes) {
+    const m = code.match(/^([A-Za-z]+)(\d+)$/);
+    if (!m) continue;
+    const [, sec, num] = m;
+    if (!map.has(sec)) map.set(sec, []);
+    map.get(sec).push(num);
+  }
+  return map;
+}
+
 function buildFaltamText(codes) {
   if (!codes.length) return "";
-  const chunks = [];
-  for (let i = 0; i < codes.length; i += 10) {
-    chunks.push(codes.slice(i, i + 10).join("  "));
-  }
-  return `*FIGURINHAS QUE FALTAM (${codes.length}):*\n\n` + chunks.join("\n");
+  const groups = groupBySection(codes);
+  const lines = [...groups.entries()].map(
+    ([sec, nums]) => `*${sec}:* ${nums.map((n) => fmtNum(n, sec)).join(", ")}`
+  );
+  return `*FIGURINHAS QUE FALTAM (${codes.length}):*\n\n` + lines.join("\n\n");
 }
 
 function countTotalExtras(items) {
@@ -62,11 +87,25 @@ function countTotalExtras(items) {
 function buildRepetidaText(items) {
   if (!items.length) return "";
   const total = countTotalExtras(items);
-  const chunks = [];
-  for (let i = 0; i < items.length; i += 6) {
-    chunks.push(items.slice(i, i + 6).join("  "));
+
+  // Group parsed entries by section
+  const map = new Map();
+  for (const item of items) {
+    const m = item.match(/^([A-Za-z]+)(\d+)\s*\((\d+)x\)$/);
+    if (!m) continue;
+    const [, sec, num, qty] = m;
+    if (!map.has(sec)) map.set(sec, []);
+    map.get(sec).push({ num, qty: parseInt(qty, 10) });
   }
-  return `*FIGURINHAS REPETIDAS (${total}):*\n\n` + chunks.join("\n");
+
+  const lines = [...map.entries()].map(([sec, entries]) => {
+    const formatted = entries
+      .map(({ num, qty }) => `${fmtNum(num, sec)} (${qty}x)`)
+      .join(", ");
+    return `*${sec}:* ${formatted}`;
+  });
+
+  return `*FIGURINHAS REPETIDAS (${total}):*\n\n` + lines.join("\n\n");
 }
 
 export default function Trocas() {

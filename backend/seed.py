@@ -5,6 +5,50 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 import models
 
+# FWC section: each sticker has a description rather than a player name.
+# FWC00–FWC08 = Página Inicial; FWC09–FWC19 = FIFA World Cup History.
+# Entries left blank ("") are pending confirmation from the physical album.
+FWC_NAMES: dict[str, str] = {
+    "00": "Panini",
+    "01": "Troféu FIFA",
+    "02": "Troféu FIFA",
+    "03": "We Are 26",
+    "04": "Bola Oficial",
+    "05": "Logo Copa (Azul)",
+    "06": "Logo Copa (Vermelho)",
+    "07": "Logo Copa (Escuro)",
+    "08": "Maple, Zavu e Clutch",  # mascotes
+    "09": "Itália 1934",
+    "10": "Uruguai 1950",
+    "11": "Alemanha 1954",
+    "12": "Brasil 1962",
+    "13": "Alemanha 1974",
+    "14": "Argentina 1986",
+    "15": "Brasil 1994",
+    "16": "Brasil 2002",
+    "17": "Itália 2006",
+    "18": "Alemanha 2014",
+    "19": "Argentina 2022",
+}
+
+# Coca-Cola section: positions 1-14 are all players (no Escudo/Perfilada slots).
+CC_PLAYERS: List[str] = [
+    "Alphonso Davies",    # CC1
+    "Enner Valencia",     # CC2
+    "Federico Valverde",  # CC3
+    "Harry Kane",         # CC4
+    "Jefferson Lerma",    # CC5
+    "Joshua Kimmich",     # CC6
+    "Joško Gvardiol",     # CC7
+    "Lamine Yamal",       # CC8
+    "Lautaro Martínez",   # CC9
+    "Virgil van Dijk",    # CC10
+    "Emiliano Martínez",  # CC11
+    "Gabriel Magalhães",  # CC12
+    "Santiago Giménez",   # CC13
+    "Raúl Jiménez",       # CC14
+]
+
 # 18 player names per team, in album order (stickers 2-12 then 14-20).
 # Empty string = no player (used for missing data).
 PLAYER_NAMES: dict[str, List[str]] = {
@@ -60,13 +104,25 @@ PLAYER_NAMES: dict[str, List[str]] = {
 
 
 def _player_name_for_number(number: str, section_code: str) -> str:
-    """Map sticker number (1-20) to player name. 1=shield, 13=team photo."""
-    players = PLAYER_NAMES.get(section_code)
-    if not players:
-        return ""
+    """Map sticker number to player name.
+
+    CC section: positions 1-14 are all players (no shield/perfilada slots).
+    Team sections: position 1 = Escudo, 13 = Perfilada (no player name);
+                   remaining 18 slots map to PLAYER_NAMES[section_code].
+    """
     try:
         n = int(number)
     except ValueError:
+        return ""
+
+    if section_code == "FWC":
+        return FWC_NAMES.get(number, "")
+
+    if section_code == "CC":
+        return CC_PLAYERS[n - 1] if 1 <= n <= len(CC_PLAYERS) else ""
+
+    players = PLAYER_NAMES.get(section_code)
+    if not players:
         return ""
     if n == 1 or n == 13:
         return ""
@@ -191,6 +247,21 @@ def seed_player_names(db: Session) -> None:
         return
     for s in stickers:
         s.player_name = _player_name_for_number(s.number, s.section_code)
+
+
+def sync_fwc_names(db: Session) -> None:
+    """Force-sync FWC player_name from FWC_NAMES dict.
+
+    Unlike seed_player_names, this overwrites existing values so that
+    corrections to FWC_NAMES are applied even when the DB already has data.
+    """
+    fwc_stickers = (
+        db.query(models.Sticker)
+        .filter(models.Sticker.section_code == "FWC")
+        .all()
+    )
+    for s in fwc_stickers:
+        s.player_name = FWC_NAMES.get(s.number, "")
     db.commit()
 
 

@@ -45,13 +45,20 @@ function ProgressRing({ pct }) {
   );
 }
 
+
+function progressBarColor(pct) {
+  if (pct >= 70) return "bg-emerald-500";
+  if (pct >= 30) return "bg-amber-400";
+  return "bg-rose-500";
+}
+
 function GroupProgressBar({ group, coladas, total, pct }) {
   return (
     <div className="flex items-center gap-3">
       <span className="text-zinc-400 text-xs w-16 shrink-0">{group}</span>
       <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
         <div
-          className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500"
+          className={`h-1.5 rounded-full transition-all duration-500 ${progressBarColor(pct)}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -82,6 +89,7 @@ const ALBUM_TYPES = [
 ];
 const PACKET_PRICE = 7.00;
 const PACKET_SIZE = 7;
+const STICKER_UNIT_PRICE = PACKET_PRICE / PACKET_SIZE; // R$ 1,00
 
 const fmt = (v) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -95,7 +103,8 @@ function CostCard({ summary }) {
     const packets = Math.ceil(totalOwned / PACKET_SIZE);
     const packetsCost = packets * PACKET_PRICE;
     const total = album.price + packetsCost;
-    return { totalOwned, packets, packetsCost, total };
+    const tradeValue = summary.repetidas * STICKER_UNIT_PRICE;
+    return { totalOwned, packets, packetsCost, total, tradeValue };
   }, [summary, album]);
 
   return (
@@ -121,7 +130,7 @@ function CostCard({ summary }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-zinc-500 text-xs">Figurinhas em mãos</span>
           <span className="text-zinc-100 text-xl font-bold tabular-nums">{cost.totalOwned}</span>
@@ -142,6 +151,11 @@ function CostCard({ summary }) {
           <span className="text-amber-400 text-xl font-bold tabular-nums">{fmt(cost.total)}</span>
           <span className="text-zinc-600 text-xs">álbum {album.label}: {fmt(album.price)}</span>
         </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-zinc-500 text-xs">Valor em Repetidas</span>
+          <span className="text-sky-400 text-xl font-bold tabular-nums">{fmt(cost.tradeValue)}</span>
+          <span className="text-zinc-600 text-xs">{summary.repetidas} extras × {fmt(STICKER_UNIT_PRICE)}</span>
+        </div>
       </div>
     </Card>
   );
@@ -160,6 +174,12 @@ export default function Dashboard() {
 
   if (error) return <p className="text-rose-400 text-sm">{error}</p>;
   if (!summary || !stats) return <p className="text-zinc-500 text-sm">Carregando...</p>;
+
+  const sortedGroups = [...stats.group_progress].sort((a, b) => b.pct - a.pct);
+
+  const laggingGroup = stats.group_progress
+    .filter((g) => g.pct > 0)
+    .reduce((min, g) => (!min || g.pct < min.pct) ? g : min, null);
 
   return (
     <div className="flex flex-col gap-8">
@@ -251,6 +271,20 @@ export default function Dashboard() {
               <span className="text-zinc-600">Nenhum ainda</span>
             </HighlightRow>
           )}
+
+          {laggingGroup ? (
+            <HighlightRow icon="bi-exclamation-triangle-fill" iconColor="text-rose-400" label="Grupo mais atrasado">
+              <span>{laggingGroup.group}</span>
+              <span className="text-zinc-500 text-xs tabular-nums ml-2">
+                {laggingGroup.coladas}/{laggingGroup.total}
+                <span className="text-rose-400 ml-1">({laggingGroup.pct}%)</span>
+              </span>
+            </HighlightRow>
+          ) : (
+            <HighlightRow icon="bi-exclamation-triangle-fill" iconColor="text-rose-400" label="Grupo mais atrasado">
+              <span className="text-zinc-600">Nenhum iniciado</span>
+            </HighlightRow>
+          )}
         </Card>
       </div>
 
@@ -263,7 +297,7 @@ export default function Dashboard() {
           Progresso por grupo
         </span>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-1">
-          {stats.group_progress.map((g) => (
+          {sortedGroups.map((g) => (
             <GroupProgressBar key={g.group} {...g} />
           ))}
         </div>
