@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: !!env.VITE_API_URL,
+      allowedHosts: env.VITE_API_URL ? "all" : [],
       proxy: {
         "/api": backendUrl,
       },
