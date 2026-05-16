@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const backendUrl = env.VITE_API_URL || "http://localhost:8000";
+  const backendUrl = process.env.VITE_API_URL || env.VITE_API_URL || "http://localhost:8000";
 
   return {
     plugins: [react(), tailwindcss()],
@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: !!env.VITE_API_URL,
+      host: !!(process.env.VITE_API_URL || env.VITE_API_URL),
       allowedHosts: true,
       proxy: {
         "/api": backendUrl,
