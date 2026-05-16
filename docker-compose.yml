@@ -8,6 +8,9 @@ services:
     environment:
       - DATABASE_URL=sqlite:////data/album-copa-2026.db
       - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+      - APP_USERNAME=${APP_USERNAME}
+      - APP_PASSWORD=${APP_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     ports:
       - "8000:8000"
     restart: unless-stopped

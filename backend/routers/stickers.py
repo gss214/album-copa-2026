@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 import models
+from auth import require_auth
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 class StickerOut(BaseModel):

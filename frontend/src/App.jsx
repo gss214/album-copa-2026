@@ -4,8 +4,9 @@ import Dashboard from "./pages/Dashboard";
 import Album from "./pages/Album";
 import Trocas from "./pages/Trocas";
 import Raras from "./pages/Raras";
+import Login from "./pages/Login";
 
-function Navbar() {
+function Navbar({ onLogout }) {
   const navClass = ({ isActive }) =>
     `px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
       isActive
@@ -33,6 +34,12 @@ function Navbar() {
         <NavLink to="/raras" className={navClass}>
           Raras
         </NavLink>
+        <button
+          onClick={onLogout}
+          className="ml-auto px-3 py-1.5 text-sm font-medium rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+        >
+          Sair
+        </button>
       </div>
     </nav>
   );
@@ -61,10 +68,21 @@ function ScrollToTop() {
 }
 
 export default function App() {
+  const [loggedIn, setLoggedIn] = useState(!!localStorage.getItem("token"));
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setLoggedIn(false);
+  };
+
+  if (!loggedIn) {
+    return <Login onLogin={() => setLoggedIn(true)} />;
+  }
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
-        <Navbar />
+        <Navbar onLogout={handleLogout} />
         <main className="max-w-7xl mx-auto px-6 py-8">
           <Routes>
             <Route path="/" element={<Dashboard />} />
