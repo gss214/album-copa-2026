@@ -48,7 +48,7 @@ function BottomNav() {
     }`;
 
   return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950 border-t border-zinc-800/60 flex items-stretch safe-area-inset-bottom">
+    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950 border-t border-zinc-800/60 flex items-stretch" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       <NavLink to="/" end className={itemClass}>
         <i className="bi bi-speedometer2 text-xl" />
         <span>Dashboard</span>

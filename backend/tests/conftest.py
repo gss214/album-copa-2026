@@ -88,3 +88,11 @@ def sticker_factory(db: Session):
         db.refresh(s)
         return s
     return _make
+
+
+def pytest_sessionfinish(session, exitstatus):
+    import os as _os
+    try:
+        _os.unlink(_DB_PATH)
+    except OSError:
+        pass
