@@ -147,7 +147,10 @@ export default function Trocas() {
       {error && <p className="text-rose-400 text-sm">{error}</p>}
 
       {!trocas && !error && (
-        <p className="text-zinc-500 text-sm">Carregando...</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
+          <div className="h-96 rounded-xl bg-zinc-900 border border-zinc-800" />
+          <div className="h-96 rounded-xl bg-zinc-900 border border-zinc-800" />
+        </div>
       )}
 
       {trocas && (

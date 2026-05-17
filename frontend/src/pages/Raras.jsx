@@ -44,6 +44,25 @@ function VariantTile({ sticker, onUpdate }) {
   );
 }
 
+function PlayerLogo({ logo, sectionCode, country }) {
+  const [error, setError] = useState(false);
+  if (!logo || error) {
+    return (
+      <span className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+        {sectionCode.slice(0, 3).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={logo}
+      alt={country}
+      className="w-8 h-8 object-contain shrink-0"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 function PlayerCard({ sectionCode, stickers, onUpdate }) {
   const player = RARE_PLAYERS[sectionCode];
   const logo = player ? LOGOS[player.code] : null;
@@ -53,14 +72,7 @@ function PlayerCard({ sectionCode, stickers, onUpdate }) {
   return (
     <Card className="p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2.5">
-        {logo && (
-          <img
-            src={logo}
-            alt={player?.country}
-            className="w-8 h-8 object-contain shrink-0"
-            onError={(e) => { e.target.style.display = "none"; }}
-          />
-        )}
+        <PlayerLogo logo={logo} sectionCode={sectionCode} country={player?.country} />
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <span className="text-zinc-100 text-sm font-semibold leading-tight truncate">
             {player?.name ?? sectionCode}
@@ -154,10 +166,16 @@ export default function Raras() {
       </div>
 
       {error && <p className="text-rose-400 text-sm">{error}</p>}
-      {loading && <p className="text-zinc-500 text-sm">Carregando...</p>}
+      {loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 animate-pulse">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-28 rounded-xl bg-zinc-900 border border-zinc-800" />
+          ))}
+        </div>
+      )}
 
       {!loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
           {[...byPlayer.entries()].map(([sectionCode, playerStickers]) => (
             <PlayerCard
               key={sectionCode}
