@@ -54,14 +54,18 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
     }, 500);
   };
 
-  const onTouchEnd = (e) => {
+  const cancelPress = () => {
     setIsPressing(false);
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
-    } else {
-      e.preventDefault();
     }
+  };
+
+  const onTouchEnd = (e) => {
+    const hadTimer = !!longPressTimer.current;
+    cancelPress();
+    if (!hadTimer) e.preventDefault();
   };
 
   const isSpecial = isSpecialSticker(sticker);
@@ -89,6 +93,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       onContextMenu={decrement}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={cancelPress}
       disabled={loading || invisible}
       title={titleParts.join(" — ")}
       className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""} ${isPressing ? "scale-90 ring-2 ring-amber-400/60" : ""}`}
