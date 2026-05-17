@@ -1,9 +1,8 @@
 from __future__ import annotations
+# ruff: noqa: E402  — env vars must be set before any backend import
 import os
 import tempfile
 
-# Env vars must be set before any backend module is imported —
-# database.py and auth.py read them at module level.
 _tmp_fd, _DB_PATH = tempfile.mkstemp(suffix="_test.db")
 os.close(_tmp_fd)
 
