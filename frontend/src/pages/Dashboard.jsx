@@ -173,7 +173,20 @@ export default function Dashboard() {
   }, []);
 
   if (error) return <p className="text-rose-400 text-sm">{error}</p>;
-  if (!summary || !stats) return <p className="text-zinc-500 text-sm">Carregando...</p>;
+  if (!summary || !stats) return (
+    <div className="flex flex-col gap-8 animate-pulse">
+      <div className="h-10 w-56 rounded-lg bg-zinc-800" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => <div key={i} className="h-28 rounded-xl bg-zinc-900 border border-zinc-800" />)}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="h-56 rounded-xl bg-zinc-900 border border-zinc-800" />
+        <div className="h-56 rounded-xl bg-zinc-900 border border-zinc-800" />
+      </div>
+      <div className="h-40 rounded-xl bg-zinc-900 border border-zinc-800" />
+      <div className="h-64 rounded-xl bg-zinc-900 border border-zinc-800" />
+    </div>
+  );
 
   const sortedGroups = [...stats.group_progress].sort((a, b) => b.pct - a.pct);
 

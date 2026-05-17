@@ -26,6 +26,7 @@ function isSpecialSticker(s) {
 
 function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const [loading, setLoading] = useState(false);
+  const [isPressing, setIsPressing] = useState(false);
   const longPressTimer = useRef(null);
 
   const increment = async (e) => {
@@ -45,19 +46,26 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   };
 
   const onTouchStart = () => {
+    setIsPressing(true);
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null;
+      setIsPressing(false);
       decrement({ preventDefault: () => {} });
     }, 500);
   };
 
-  const onTouchEnd = (e) => {
+  const cancelPress = () => {
+    setIsPressing(false);
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
-    } else {
-      e.preventDefault();
     }
+  };
+
+  const onTouchEnd = (e) => {
+    const hadTimer = !!longPressTimer.current;
+    cancelPress();
+    if (!hadTimer) e.preventDefault();
   };
 
   const isSpecial = isSpecialSticker(sticker);
@@ -85,9 +93,10 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       onContextMenu={decrement}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={cancelPress}
       disabled={loading || invisible}
       title={titleParts.join(" — ")}
-      className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""}`}
+      className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""} ${isPressing ? "scale-90 ring-2 ring-amber-400/60" : ""}`}
     >
       <span className="leading-none">{sticker.number}</span>
       {sticker.player_name && (
@@ -111,6 +120,26 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   );
 }
 
+function TeamLogo({ logo, sectionCode, sectionName }) {
+  const [error, setError] = useState(false);
+  const initials = sectionCode.slice(0, 3).toUpperCase();
+  if (!logo || error) {
+    return (
+      <span className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+        {initials}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={logo}
+      alt={sectionName}
+      className="w-8 h-8 object-contain shrink-0"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing, withRepeated }) {
   const coladas = stickers.filter((s) => s.quantity >= 1).length;
   const total = stickers.length;
@@ -123,14 +152,7 @@ function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing, w
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            {logo && (
-              <img
-                src={logo}
-                alt={sectionName}
-                className="w-8 h-8 object-contain shrink-0"
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-            )}
+            <TeamLogo logo={logo} sectionCode={sectionCode} sectionName={sectionName} />
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="text-zinc-200 text-sm font-semibold leading-tight truncate">
                 {sectionName}
@@ -166,7 +188,7 @@ function GroupSection({ groupName, teamMap, onUpdate, onlyMissing, withRepeated 
       <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-2">
         {groupName}
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
         {[...teamMap.entries()].map(([key, stickers]) => {
           const first = stickers[0];
           return (
@@ -258,6 +280,7 @@ export default function Album() {
   const [specialOnly, setSpecialOnly] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [withRepeated, setWithRepeated] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [importError, setImportError] = useState(null);
@@ -456,95 +479,132 @@ export default function Album() {
       </div>
 
       {/* ─── Sticky filter bar ─────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-zinc-950 -mx-6 px-6 py-3 border-b border-zinc-800/80 flex flex-col gap-3">
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar time, jogador, grupo ou figurinha..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-colors"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-            >
-              <i className="bi bi-x text-sm" />
-            </button>
-          )}
-        </div>
+      {(() => {
+        const activeFilterCount = [
+          statusFilter !== "all",
+          specialOnly,
+          withRepeated,
+          onlyMissing,
+          group !== "Todos",
+        ].filter(Boolean).length;
 
-        {/* Status + view-mode pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setStatusFilter(f.key)}
-              className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-                statusFilter === f.key ? STATUS_ACTIVE_CLS[f.key] : INACTIVE_CLS
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        return (
+          <div className="sticky top-0 z-30 bg-zinc-950 -mx-3 px-3 sm:-mx-6 sm:px-6 py-3 border-b border-zinc-800/80 flex flex-col gap-3">
+            {/* Search row + mobile filter toggle */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:max-w-sm">
+                <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar time, jogador, grupo..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-colors"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  >
+                    <i className="bi bi-x text-sm" />
+                  </button>
+                )}
+              </div>
 
-          <span className="w-px h-4 bg-zinc-700 mx-0.5" />
+              {/* Filter toggle — mobile only */}
+              <button
+                onClick={() => setFiltersOpen((v) => !v)}
+                className={`relative sm:hidden flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg font-semibold transition-colors ${
+                  filtersOpen
+                    ? "bg-zinc-700 text-zinc-100"
+                    : activeFilterCount > 0
+                    ? "bg-zinc-800 text-zinc-200"
+                    : "bg-zinc-800/60 text-zinc-400"
+                }`}
+              >
+                <i className="bi bi-sliders text-sm" />
+                Filtros
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-zinc-900 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
 
-          {/* Especiais toggle */}
-          <button
-            onClick={() => setSpecialOnly((v) => !v)}
-            title="Mostrar apenas Escudo (1) e Perfilada (13)"
-            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
-              specialOnly ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/40" : INACTIVE_CLS
-            }`}
-          >
-            <i className="bi bi-star-fill text-[10px]" />
-            Especiais
-          </button>
+            {/* Expanded filters — always visible on desktop, toggle on mobile */}
+            <div className={`flex flex-col gap-2 ${filtersOpen ? "" : "hidden sm:flex"}`}>
+              {/* Status pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Status</span>
+                {STATUS_FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setStatusFilter(f.key === statusFilter && f.key !== "all" ? "all" : f.key)}
+                    className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
+                      statusFilter === f.key ? STATUS_ACTIVE_CLS[f.key] : INACTIVE_CLS
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
 
-          {/* Com repetidas toggle */}
-          <button
-            onClick={() => setWithRepeated((v) => !v)}
-            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-              withRepeated ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : INACTIVE_CLS
-            }`}
-          >
-            Com repetidas
-          </button>
+              {/* View-mode pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Modo</span>
 
-          {/* Apenas Faltantes toggle */}
-          <button
-            onClick={() => setOnlyMissing((v) => !v)}
-            title="Ocultar figurinhas já coladas — ver apenas os buracos"
-            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
-              onlyMissing ? "bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40" : INACTIVE_CLS
-            }`}
-          >
-            <i className="bi bi-eye-slash-fill text-[10px]" />
-            Apenas Faltantes
-          </button>
-        </div>
+                <button
+                  onClick={() => setSpecialOnly((v) => !v)}
+                  title="Mostrar apenas Escudo (1) e Perfilada (13)"
+                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
+                    specialOnly ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/40" : INACTIVE_CLS
+                  }`}
+                >
+                  <i className={`bi ${specialOnly ? "bi-star-fill" : "bi-star"} text-[10px]`} />
+                  Especiais
+                </button>
 
-        {/* Group pills */}
-        <div className="flex flex-wrap gap-1.5">
-          {GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setGroup(g)}
-              className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-                group === g
-                  ? "bg-zinc-100 text-zinc-900"
-                  : INACTIVE_CLS
-              }`}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      </div>
+                <button
+                  onClick={() => setWithRepeated((v) => !v)}
+                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
+                    withRepeated ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : INACTIVE_CLS
+                  }`}
+                >
+                  Repetidas
+                </button>
+
+                <button
+                  onClick={() => setOnlyMissing((v) => !v)}
+                  title="Ocultar figurinhas já coladas — ver apenas os buracos"
+                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
+                    onlyMissing ? "bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40" : INACTIVE_CLS
+                  }`}
+                >
+                  <i className="bi bi-eye-slash-fill text-[10px]" />
+                  Apenas Faltantes
+                </button>
+              </div>
+
+              {/* Group pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Grupo</span>
+                {GROUPS.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGroup(g === group && g !== "Todos" ? "Todos" : g)}
+                    className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
+                      group === g ? "bg-zinc-100 text-zinc-900" : INACTIVE_CLS
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {error && <p className="text-rose-400 text-sm">{error}</p>}
       {importError && (
@@ -553,7 +613,13 @@ export default function Album() {
           {importError}
         </p>
       )}
-      {loading && <p className="text-zinc-500 text-sm">Carregando...</p>}
+      {loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 animate-pulse">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-52 rounded-xl bg-zinc-900 border border-zinc-800" />
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       {!loading && (

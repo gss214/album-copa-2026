@@ -42,31 +42,6 @@ docker compose up --build
 
 The database is seeded automatically on first run with all **994 stickers** from the album.
 
-## Deploying to Railway
-
-Deploy backend and frontend as two separate services, both pointing to this repo with different root directories.
-
-| Service  | Root Directory | Port |
-| -------- | -------------- | ---- |
-| Backend  | `backend`      | 8000 |
-| Frontend | `frontend`     | 5173 |
-
-**Backend environment variables:**
-
-| Variable       | Description                        |
-| -------------- | ---------------------------------- |
-| `APP_USERNAME` | Login username                     |
-| `APP_PASSWORD` | Login password                     |
-| `JWT_SECRET`   | Random secret for signing tokens   |
-| `DATABASE_URL` | `sqlite:////data/album-copa-2026.db` |
-| `CORS_ORIGINS` | Frontend Railway URL               |
-
-**Frontend environment variables:**
-
-| Variable       | Description              |
-| -------------- | ------------------------ |
-| `VITE_API_URL` | Backend Railway URL      |
-
 ## Album structure
 
 | Section               | Stickers              |
