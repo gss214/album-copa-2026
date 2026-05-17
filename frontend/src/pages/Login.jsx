@@ -19,7 +19,7 @@ export default function Login({ onLogin }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Erro ao fazer login");
       localStorage.setItem("token", data.access_token);
       onLogin();
