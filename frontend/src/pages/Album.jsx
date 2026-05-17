@@ -24,8 +24,9 @@ function isSpecialSticker(s) {
     s.section_code !== "FWC" && s.section_code !== "CC";
 }
 
-function StickerTile({ sticker, onUpdate, onlyMissing }) {
+function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const [loading, setLoading] = useState(false);
+  const longPressTimer = useRef(null);
 
   const increment = async (e) => {
     e.preventDefault();
@@ -41,6 +42,22 @@ function StickerTile({ sticker, onUpdate, onlyMissing }) {
     setLoading(true);
     try { await onUpdate(sticker.code, sticker.quantity - 1); }
     finally { setLoading(false); }
+  };
+
+  const onTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
+      decrement({ preventDefault: () => {} });
+    }, 500);
+  };
+
+  const onTouchEnd = (e) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    } else {
+      e.preventDefault();
+    }
   };
 
   const isSpecial = isSpecialSticker(sticker);
@@ -60,13 +77,14 @@ function StickerTile({ sticker, onUpdate, onlyMissing }) {
   if (specialLabel) titleParts.push(specialLabel);
   titleParts.push(sticker.player_name ? `${sticker.code} · ${sticker.player_name}` : sticker.code);
 
-  // When "Apenas Faltantes" is on, owned stickers are invisible but keep their grid slot (holes)
-  const invisible = onlyMissing && sticker.quantity >= 1;
+  const invisible = (onlyMissing && sticker.quantity >= 1) || (withRepeated && sticker.quantity <= 1);
 
   return (
     <button
       onClick={increment}
       onContextMenu={decrement}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       disabled={loading || invisible}
       title={titleParts.join(" — ")}
       className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""}`}
@@ -93,7 +111,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing }) {
   );
 }
 
-function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing }) {
+function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing, withRepeated }) {
   const coladas = stickers.filter((s) => s.quantity >= 1).length;
   const total = stickers.length;
   const pct = total ? Math.round((coladas / total) * 100) : 0;
@@ -135,14 +153,14 @@ function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing })
 
       <div className="grid grid-cols-5 gap-1">
         {stickers.map((s) => (
-          <StickerTile key={s.code} sticker={s} onUpdate={onUpdate} onlyMissing={onlyMissing} />
+          <StickerTile key={s.code} sticker={s} onUpdate={onUpdate} onlyMissing={onlyMissing} withRepeated={withRepeated} />
         ))}
       </div>
     </Card>
   );
 }
 
-function GroupSection({ groupName, teamMap, onUpdate, onlyMissing }) {
+function GroupSection({ groupName, teamMap, onUpdate, onlyMissing, withRepeated }) {
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-2">
@@ -159,6 +177,7 @@ function GroupSection({ groupName, teamMap, onUpdate, onlyMissing }) {
               stickers={stickers}
               onUpdate={onUpdate}
               onlyMissing={onlyMissing}
+              withRepeated={withRepeated}
             />
           );
         })}
@@ -172,7 +191,6 @@ const STATUS_FILTERS = [
   { key: "incomplete", label: "Incompletas" },
   { key: "complete", label: "Completas" },
   { key: "not_started", label: "Não iniciadas" },
-  { key: "repeated", label: "Com repetidas" },
 ];
 
 const STATUS_ACTIVE_CLS = {
@@ -180,7 +198,6 @@ const STATUS_ACTIVE_CLS = {
   incomplete: "bg-amber-400 text-zinc-900",
   complete: "bg-sky-500 text-white",
   not_started: "bg-zinc-600 text-zinc-100",
-  repeated: "bg-emerald-600 text-white",
 };
 
 const INACTIVE_CLS = "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800";
@@ -240,6 +257,7 @@ export default function Album() {
   const [search, setSearch] = useState("");
   const [specialOnly, setSpecialOnly] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [withRepeated, setWithRepeated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [importError, setImportError] = useState(null);
@@ -361,15 +379,15 @@ export default function Album() {
 
     for (const [teamKey, teamStickers] of allTeams.entries()) {
       if (teamStickers.length === 0) continue;
-      if (statusFilter === "repeated" && !teamHasRepeated(teamStickers)) continue;
-      if (statusFilter !== "all" && statusFilter !== "repeated" && teamStatus(teamStickers) !== statusFilter) continue;
+      if (withRepeated && !teamHasRepeated(teamStickers)) continue;
+      if (statusFilter !== "all" && teamStatus(teamStickers) !== statusFilter) continue;
       const groupName = teamStickers[0].group_name;
       if (!byGroup.has(groupName)) byGroup.set(groupName, new Map());
       byGroup.get(groupName).set(teamKey, teamStickers);
     }
 
     return byGroup;
-  }, [stickers, group, statusFilter, search, specialOnly]);
+  }, [stickers, group, statusFilter, search, specialOnly, withRepeated]);
 
   const mainStickers = stickers.filter((s) => !EXCLUDED_GROUPS.has(s.group_name));
   const coladas = mainStickers.filter((s) => s.quantity >= 1).length;
@@ -402,7 +420,7 @@ export default function Album() {
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">Álbum</h1>
           <p className="text-zinc-500 text-sm mt-0.5">
-            Clique na figurinha para marcar · clique direito para desmarcar
+            Toque para marcar · segure para desmarcar
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -487,6 +505,16 @@ export default function Album() {
             Especiais
           </button>
 
+          {/* Com repetidas toggle */}
+          <button
+            onClick={() => setWithRepeated((v) => !v)}
+            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
+              withRepeated ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : INACTIVE_CLS
+            }`}
+          >
+            Com repetidas
+          </button>
+
           {/* Apenas Faltantes toggle */}
           <button
             onClick={() => setOnlyMissing((v) => !v)}
@@ -540,6 +568,7 @@ export default function Album() {
               teamMap={teamMap}
               onUpdate={handleUpdate}
               onlyMissing={onlyMissing}
+              withRepeated={withRepeated}
             />
           ))}
         </div>

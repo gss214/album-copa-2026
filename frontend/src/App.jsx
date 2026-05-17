@@ -15,28 +15,22 @@ function Navbar({ onLogout }) {
     }`;
 
   return (
-    <nav className="bg-zinc-950 border-b border-zinc-800/60 px-6">
+    <nav className="bg-zinc-950 border-b border-zinc-800/60 px-3 sm:px-6">
       <div className="max-w-7xl mx-auto flex items-center gap-1 h-12">
-        <span className="text-zinc-100 font-bold text-sm tracking-wider uppercase mr-5 flex items-center gap-2">
+        <span className="text-zinc-100 font-bold text-sm tracking-wider uppercase mr-3 sm:mr-5 flex items-center gap-2 shrink-0">
           <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-6 h-6 object-contain" />
-          Álbum Copa 2026
+          <span className="hidden sm:inline">Álbum Copa 2026</span>
         </span>
-        <div className="w-px h-4 bg-zinc-800 mr-4" />
-        <NavLink to="/" end className={navClass}>
-          Dashboard
-        </NavLink>
-        <NavLink to="/album" className={navClass}>
-          Álbum
-        </NavLink>
-        <NavLink to="/trocas" className={navClass}>
-          Trocas
-        </NavLink>
-        <NavLink to="/raras" className={navClass}>
-          Raras
-        </NavLink>
+        <div className="hidden sm:block w-px h-4 bg-zinc-800 mr-4" />
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+          <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+          <NavLink to="/album" className={navClass}>Álbum</NavLink>
+          <NavLink to="/trocas" className={navClass}>Trocas</NavLink>
+          <NavLink to="/raras" className={navClass}>Raras</NavLink>
+        </div>
         <button
           onClick={onLogout}
-          className="ml-auto px-3 py-1.5 text-sm font-medium rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+          className="ml-auto shrink-0 px-3 py-1.5 text-sm font-medium rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
         >
           Sair
         </button>
@@ -83,7 +77,7 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
         <Navbar onLogout={handleLogout} />
-        <main className="max-w-7xl mx-auto px-6 py-8">
+        <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/album" element={<Album />} />
