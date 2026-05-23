@@ -177,7 +177,7 @@ def test_bulk_creates_logs(client, sticker_factory, h):
                                  {"code": "BRA2", "quantity": 1}]},  # BRA2 unchanged
                  headers=h)
     logs = client.get("/api/logs", headers=h).json()
-    codes = [l["sticker_code"] for l in logs]
+    codes = [entry["sticker_code"] for entry in logs]
     assert "BRA1" in codes
     assert "BRA2" not in codes  # quantity unchanged → no log
 
