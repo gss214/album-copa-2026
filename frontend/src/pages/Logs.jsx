@@ -3,7 +3,7 @@ import { api } from "@/api";
 import { Card } from "@/components/ui/card";
 
 function timeAgo(isoString) {
-  const diff = Date.now() - new Date(isoString + "Z").getTime();
+  const diff = Date.now() - new Date(isoString).getTime();
   const s = Math.floor(diff / 1000);
   if (s < 60) return "agora mesmo";
   const m = Math.floor(s / 60);
@@ -15,7 +15,7 @@ function timeAgo(isoString) {
 }
 
 function formatDate(isoString) {
-  return new Date(isoString + "Z").toLocaleString("pt-BR", {
+  return new Date(isoString).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

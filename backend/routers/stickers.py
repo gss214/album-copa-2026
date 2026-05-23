@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -145,6 +146,13 @@ def bulk_update_stickers(body: BulkUpdate, db: Session = Depends(get_db)):
         if not s:
             not_found.append(item.code)
             continue
+        if s.quantity != item.quantity:
+            db.add(models.StickerLog(
+                sticker_code=item.code,
+                sticker_section_name=s.section_name,
+                quantity_before=s.quantity,
+                quantity_after=item.quantity,
+            ))
         s.quantity = item.quantity
         updated += 1
     db.commit()
@@ -273,8 +281,17 @@ def get_stats(db: Session = Depends(get_db)):
     )
 
 
+def _utc_iso(dt) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 @router.get("/logs", response_model=List[LogOut])
-def get_logs(limit: int = 200, db: Session = Depends(get_db)):
+def get_logs(
+    limit: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
     logs = (
         db.query(models.StickerLog)
         .order_by(models.StickerLog.created_at.desc())
@@ -288,7 +305,7 @@ def get_logs(limit: int = 200, db: Session = Depends(get_db)):
             sticker_section_name=log.sticker_section_name,
             quantity_before=log.quantity_before,
             quantity_after=log.quantity_after,
-            created_at=log.created_at.isoformat(),
+            created_at=_utc_iso(log.created_at),
         )
         for log in logs
     ]

@@ -29,7 +29,7 @@ class StickerLog(Base):
     quantity_before = Column(Integer, nullable=False)
     quantity_after = Column(Integer, nullable=False)
     created_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )

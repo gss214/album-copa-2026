@@ -141,3 +141,65 @@ def test_trocas_repetidas_format(client, sticker_factory, h):
     data = client.get("/api/trocas", headers=h).json()
     # Formato esperado: "BRA1 (3x)"
     assert data["repetidas"] == ["BRA1 (3x)"]
+
+
+# ── GET /logs ─────────────────────────────────────────────────────────────────
+
+def test_logs_empty(client, h):
+    r = client.get("/api/logs", headers=h)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_patch_creates_log(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    client.patch("/api/stickers/BRA1", json={"quantity": 1}, headers=h)
+    logs = client.get("/api/logs", headers=h).json()
+    assert len(logs) == 1
+    assert logs[0]["sticker_code"] == "BRA1"
+    assert logs[0]["quantity_before"] == 0
+    assert logs[0]["quantity_after"] == 1
+    assert logs[0]["created_at"].endswith("Z")
+
+
+def test_patch_no_log_when_same_quantity(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=2)
+    client.patch("/api/stickers/BRA1", json={"quantity": 2}, headers=h)
+    logs = client.get("/api/logs", headers=h).json()
+    assert logs == []
+
+
+def test_bulk_creates_logs(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    sticker_factory(code="BRA2", number="2", quantity=1, sort_order=101)
+    client.patch("/api/stickers/bulk",
+                 json={"items": [{"code": "BRA1", "quantity": 3},
+                                 {"code": "BRA2", "quantity": 1}]},  # BRA2 unchanged
+                 headers=h)
+    logs = client.get("/api/logs", headers=h).json()
+    codes = [l["sticker_code"] for l in logs]
+    assert "BRA1" in codes
+    assert "BRA2" not in codes  # quantity unchanged → no log
+
+
+def test_logs_descending_order(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    client.patch("/api/stickers/BRA1", json={"quantity": 1}, headers=h)
+    client.patch("/api/stickers/BRA1", json={"quantity": 2}, headers=h)
+    logs = client.get("/api/logs", headers=h).json()
+    assert len(logs) == 2
+    assert logs[0]["quantity_after"] == 2
+    assert logs[1]["quantity_after"] == 1
+
+
+def test_logs_limit(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    for q in range(1, 4):
+        client.patch("/api/stickers/BRA1", json={"quantity": q}, headers=h)
+    logs = client.get("/api/logs?limit=2", headers=h).json()
+    assert len(logs) == 2
+
+
+def test_logs_limit_invalid(client, h):
+    assert client.get("/api/logs?limit=0", headers=h).status_code == 422
+    assert client.get("/api/logs?limit=501", headers=h).status_code == 422
