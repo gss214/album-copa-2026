@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import Album from "./pages/Album";
 import Trocas from "./pages/Trocas";
 import Raras from "./pages/Raras";
+import Logs from "./pages/Logs";
 import Login from "./pages/Login";
 
 function Navbar({ onLogout }) {
@@ -27,6 +28,7 @@ function Navbar({ onLogout }) {
           <NavLink to="/album" className={navClass}>Álbum</NavLink>
           <NavLink to="/trocas" className={navClass}>Trocas</NavLink>
           <NavLink to="/raras" className={navClass}>Raras</NavLink>
+          <NavLink to="/logs" className={navClass}>Histórico</NavLink>
         </div>
         <button
           onClick={onLogout}
@@ -64,6 +66,10 @@ function BottomNav() {
       <NavLink to="/raras" className={itemClass}>
         <i className="bi bi-stars text-xl" />
         <span>Raras</span>
+      </NavLink>
+      <NavLink to="/logs" className={itemClass}>
+        <i className="bi bi-clock-history text-xl" />
+        <span>Histórico</span>
       </NavLink>
     </nav>
   );
@@ -113,6 +119,7 @@ export default function App() {
             <Route path="/album" element={<Album />} />
             <Route path="/trocas" element={<Trocas />} />
             <Route path="/raras" element={<Raras />} />
+            <Route path="/logs" element={<Logs />} />
           </Routes>
         </main>
         <BottomNav />

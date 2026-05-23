@@ -26,8 +26,9 @@ _http = TestClient(app, raise_server_exceptions=True)
 
 @pytest.fixture(autouse=True)
 def _wipe_stickers():
-    """Truncate stickers before each test for full isolation."""
+    """Truncate stickers and logs before each test for full isolation."""
     db = SessionLocal()
+    db.query(models.StickerLog).delete()
     db.query(models.Sticker).delete()
     db.commit()
     db.close()
