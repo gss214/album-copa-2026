@@ -41,4 +41,5 @@ export const api = {
   getSummary: () => request("/summary"),
   getTrocas: () => request("/trocas"),
   getStats: () => request("/stats"),
+  getLogs: (limit = 200) => request(`/logs?limit=${limit}`),
 };

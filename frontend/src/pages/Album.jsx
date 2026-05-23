@@ -28,9 +28,12 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const [loading, setLoading] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
   const longPressTimer = useRef(null);
+  const touchOrigin = useRef(null);
+  const didScroll = useRef(false);
 
-  const increment = async (e) => {
-    e.preventDefault();
+  const MOVE_THRESHOLD = 8;
+
+  const increment = async () => {
     if (loading) return;
     setLoading(true);
     try { await onUpdate(sticker.code, sticker.quantity + 1); }
@@ -38,20 +41,32 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   };
 
   const decrement = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (loading || sticker.quantity === 0) return;
     setLoading(true);
     try { await onUpdate(sticker.code, sticker.quantity - 1); }
     finally { setLoading(false); }
   };
 
-  const onTouchStart = () => {
+  const onTouchStart = (e) => {
+    touchOrigin.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    didScroll.current = false;
     setIsPressing(true);
     longPressTimer.current = setTimeout(() => {
       longPressTimer.current = null;
       setIsPressing(false);
-      decrement({ preventDefault: () => {} });
+      if (!didScroll.current) decrement();
     }, 500);
+  };
+
+  const onTouchMove = (e) => {
+    if (!touchOrigin.current || didScroll.current) return;
+    const dx = e.touches[0].clientX - touchOrigin.current.x;
+    const dy = e.touches[0].clientY - touchOrigin.current.y;
+    if (dx * dx + dy * dy > MOVE_THRESHOLD * MOVE_THRESHOLD) {
+      didScroll.current = true;
+      cancelPress();
+    }
   };
 
   const cancelPress = () => {
@@ -63,9 +78,11 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   };
 
   const onTouchEnd = (e) => {
-    const hadTimer = !!longPressTimer.current;
+    e.preventDefault(); // prevent synthetic click
+    const wasShortTap = !!longPressTimer.current;
     cancelPress();
-    if (!hadTimer) e.preventDefault();
+    if (wasShortTap && !didScroll.current) increment();
+    touchOrigin.current = null;
   };
 
   const isSpecial = isSpecialSticker(sticker);
@@ -92,6 +109,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       onClick={increment}
       onContextMenu={decrement}
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={cancelPress}
       disabled={loading || invisible}

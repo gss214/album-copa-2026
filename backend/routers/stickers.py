@@ -60,6 +60,15 @@ class TrocasOut(BaseModel):
     repetidas: List[str]
 
 
+class LogOut(BaseModel):
+    id: int
+    sticker_code: str
+    sticker_section_name: str
+    quantity_before: int
+    quantity_after: int
+    created_at: str
+
+
 class GroupProgress(BaseModel):
     group: str
     coladas: int
@@ -149,6 +158,13 @@ def update_sticker(code: str, body: StickerUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Figurinha não encontrada")
     if body.quantity < 0:
         raise HTTPException(status_code=400, detail="Quantidade não pode ser negativa")
+    if sticker.quantity != body.quantity:
+        db.add(models.StickerLog(
+            sticker_code=code,
+            sticker_section_name=sticker.section_name,
+            quantity_before=sticker.quantity,
+            quantity_after=body.quantity,
+        ))
     sticker.quantity = body.quantity
     db.commit()
     db.refresh(sticker)
@@ -255,6 +271,27 @@ def get_stats(db: Session = Depends(get_db)):
         closest_group=closest_group,
         group_progress=group_progress,
     )
+
+
+@router.get("/logs", response_model=List[LogOut])
+def get_logs(limit: int = 200, db: Session = Depends(get_db)):
+    logs = (
+        db.query(models.StickerLog)
+        .order_by(models.StickerLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        LogOut(
+            id=log.id,
+            sticker_code=log.sticker_code,
+            sticker_section_name=log.sticker_section_name,
+            quantity_before=log.quantity_before,
+            quantity_after=log.quantity_after,
+            created_at=log.created_at.isoformat(),
+        )
+        for log in logs
+    ]
 
 
 @router.get("/trocas", response_model=TrocasOut)
