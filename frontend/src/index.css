@@ -1,13 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --color-app: var(--color-zinc-950);
-  --color-surface: var(--color-zinc-900);
-  --color-surface-2: var(--color-zinc-800);
-  --color-border-default: var(--color-zinc-800);
-  --color-text-primary: var(--color-zinc-100);
-  --color-text-secondary: var(--color-zinc-400);
-  --color-text-muted: var(--color-zinc-500);
+  --color-app: #0d1b2a;
+  --color-surface: #132030;
+  --color-surface-2: #1a2d42;
+  --color-border-default: rgba(184, 115, 51, 0.25);
+  --color-text-primary: #e8d5b0;
+  --color-text-secondary: #7a9bb5;
+  --color-text-muted: #4a6785;
+
+  --color-gold: #d4a853;
+  --color-copper: #b87333;
 
   --color-positive: var(--color-emerald-400);
   --color-negative: var(--color-rose-400);
@@ -20,6 +24,24 @@ body {
 }
 
 body {
-  background-color: var(--color-zinc-950);
-  color: var(--color-zinc-100);
+  background-color: #0d1b2a;
+  color: #e8d5b0;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z' fill='none' stroke='%23d4a853' stroke-width='0.8'/%3E%3Ccircle cx='30' cy='30' r='4' fill='none' stroke='%23d4a853' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size: 60px 60px;
+}
+
+@keyframes holographic {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }

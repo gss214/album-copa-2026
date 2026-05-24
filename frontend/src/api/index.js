@@ -42,4 +42,5 @@ export const api = {
   getTrocas: () => request("/trocas"),
   getStats: () => request("/stats"),
   getLogs: (limit = 200) => request(`/logs?limit=${limit}`),
+  clearRepeated: () => request("/stickers/clear-repeated", { method: "POST" }),
 };

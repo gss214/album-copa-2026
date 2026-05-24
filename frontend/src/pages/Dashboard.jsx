@@ -1,170 +1,259 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { motion, animate } from "framer-motion";
 import { api } from "@/api";
-import { Card } from "@/components/ui/card";
 import { LOGOS } from "@/lib/logos";
 
-function StatCard({ icon, label, value, sub, color = "text-zinc-100" }) {
+// ── Paleta ──────────────────────────────────────────────────────────────────
+const SURFACE   = "#132030";
+const SURFACE_2 = "#1a2d42";
+const GOLD      = "#d4a853";
+const COPPER    = "#b87333";
+
+// ── Variantes de animação ────────────────────────────────────────────────────
+const PAGE_VARIANTS = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.09 } },
+};
+
+const FADE_UP = {
+  hidden:  { opacity: 0, y: 22 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.48, ease: "easeOut" } },
+};
+
+const STAGGER_GRID = {
+  hidden:  {},
+  visible: { transition: { staggerChildren: 0.07 } },
+};
+
+// ── AnimatedNumber ───────────────────────────────────────────────────────────
+function AnimatedNumber({ to, style, className, prefix = "", suffix = "" }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (to == null) return;
+    const numeric = parseFloat(String(to).replace(/[^0-9.]/g, ""));
+    const controls = animate(0, numeric, {
+      duration: 1.2,
+      ease: "easeOut",
+      onUpdate(val) {
+        if (!ref.current) return;
+        const rounded = Number.isInteger(numeric) ? Math.round(val) : val.toFixed(1);
+        ref.current.textContent = `${prefix}${rounded}${suffix}`;
+      },
+    });
+    return controls.stop;
+  }, [to, prefix, suffix]);
   return (
-    <Card className="p-5 flex flex-col gap-2">
-      <span className="text-zinc-500 text-xs uppercase tracking-wider font-medium flex items-center gap-1.5">
-        <i className={`bi ${icon}`} /> {label}
-      </span>
-      <span className={`text-3xl font-bold tabular-nums ${color}`}>{value}</span>
-      {sub && <span className="text-zinc-500 text-xs">{sub}</span>}
-    </Card>
+    <span ref={ref} style={style} className={className}>
+      {prefix}{to}{suffix}
+    </span>
   );
 }
 
-function ProgressRing({ pct }) {
-  const r = 54;
+// ── MetricsBar — 4 cards ────────────────────────────────────────────────────
+function MetricsBar({ summary }) {
+  const metrics = [
+    { icon: "bi-collection",    label: "Total do Álbum",  value: summary.total,      color: "#e8d5b0", suffix: ""  },
+    { icon: "bi-check2-square", label: "Coladas",          value: summary.coladas,    color: "#34d399", suffix: ""  },
+    { icon: "bi-x-square",      label: "Faltam",           value: summary.faltam,     color: "#f87171", suffix: ""  },
+    { icon: "bi-layers",        label: "Repetidas",        value: summary.repetidas,  color: "#38bdf8", suffix: "" },
+  ];
+
+  return (
+    <motion.div variants={FADE_UP} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {metrics.map((m) => (
+        <motion.div
+          key={m.label}
+          variants={FADE_UP}
+          className="rounded-2xl flex flex-col items-center justify-center gap-1 py-5 px-4 text-center"
+          style={{
+            background: SURFACE,
+            border: `1px solid ${m.color}22`,
+            boxShadow: `inset 0 2px 10px rgba(0,0,0,0.5), 0 0 18px ${m.color}10`,
+          }}
+        >
+          <span className="text-[10px] uppercase tracking-widest flex items-center gap-1.5" style={{ color: "#7a9bb5" }}>
+            <i className={`bi ${m.icon}`} style={{ color: m.color }} />
+            {m.label}
+          </span>
+          <AnimatedNumber
+            to={m.value}
+            suffix={m.suffix}
+            className="text-3xl tabular-nums leading-none"
+            style={{ color: m.color, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
+          />
+          {m.sub && <span className="text-[10px]" style={{ color: "#4a6785" }}>{m.sub}</span>}
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+}
+
+// ── DoughnutRing ─────────────────────────────────────────────────────────────
+function DoughnutRing({ pct }) {
+  const r    = 84;
   const circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={r} fill="none" stroke="#27272a" strokeWidth="12" />
-        <circle
-          cx="70" cy="70" r={r}
-          fill="none"
-          stroke="#34d399"
-          strokeWidth="12"
-          strokeDasharray={`${dash} ${circ - dash}`}
-          strokeDashoffset={circ / 4}
-          strokeLinecap="round"
-          style={{ transition: "stroke-dasharray 0.6s ease" }}
-        />
-        <text x="70" y="66" textAnchor="middle" fill="#f4f4f5" fontSize="22" fontWeight="bold">
-          {pct}%
-        </text>
-        <text x="70" y="84" textAnchor="middle" fill="#71717a" fontSize="11">
-          completo
-        </text>
-      </svg>
-    </div>
+    <svg width="210" height="210" viewBox="0 0 210 210">
+      <defs>
+        <linearGradient id="doughnut-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#06b6d4" />
+          <stop offset="100%" stopColor="#10b981" />
+        </linearGradient>
+        <filter id="glow-blur">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+        </filter>
+      </defs>
+      {/* track */}
+      <circle cx="105" cy="105" r={r} fill="none" stroke={SURFACE_2} strokeWidth="18" />
+      {/* glow arc */}
+      <motion.circle
+        cx="105" cy="105" r={r}
+        fill="none" stroke="#06b6d4" strokeWidth="6" strokeLinecap="round"
+        strokeDashoffset={circ / 4}
+        initial={{ strokeDasharray: `0 ${circ}` }}
+        animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
+        transition={{ duration: 1.6, ease: "easeOut", delay: 0.5 }}
+        opacity={0.4} filter="url(#glow-blur)"
+      />
+      {/* progress arc */}
+      <motion.circle
+        cx="105" cy="105" r={r}
+        fill="none" stroke="url(#doughnut-grad)" strokeWidth="18" strokeLinecap="round"
+        strokeDashoffset={circ / 4}
+        initial={{ strokeDasharray: `0 ${circ}` }}
+        animate={{ strokeDasharray: `${dash} ${circ - dash}` }}
+        transition={{ duration: 1.6, ease: "easeOut", delay: 0.5 }}
+      />
+      <text x="105" y="98" textAnchor="middle" fill={GOLD} fontSize="34" fontWeight="700"
+        fontFamily="'Playfair Display', Georgia, serif">{pct}%</text>
+      <text x="105" y="118" textAnchor="middle" fill="#4a6785" fontSize="11" letterSpacing="2">COMPLETO</text>
+    </svg>
   );
 }
 
-
+// ── GroupProgressBar ─────────────────────────────────────────────────────────
 function progressBarColor(pct) {
-  if (pct >= 70) return "bg-emerald-500";
-  if (pct >= 30) return "bg-amber-400";
-  return "bg-rose-500";
+  if (pct >= 70) return "#10b981";
+  if (pct >= 30) return "#f59e0b";
+  return "#ef4444";
 }
 
 function GroupProgressBar({ group, coladas, total, pct }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-zinc-400 text-xs w-16 shrink-0">{group}</span>
-      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className={`h-1.5 rounded-full transition-all duration-500 ${progressBarColor(pct)}`}
-          style={{ width: `${pct}%` }}
+    <motion.div variants={FADE_UP} className="flex items-center gap-3">
+      <span className="text-xs w-16 shrink-0 truncate" style={{ color: "#7a9bb5" }}>{group}</span>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
+        <motion.div
+          className="h-1.5 rounded-full"
+          style={{ background: progressBarColor(pct) }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
         />
       </div>
-      <span className="text-zinc-500 text-xs tabular-nums w-16 text-right shrink-0">
+      <span className="text-xs tabular-nums w-16 text-right shrink-0" style={{ color: "#4a6785" }}>
         {coladas}/{total}
       </span>
-    </div>
+    </motion.div>
   );
 }
 
-function HighlightRow({ icon, iconColor, label, children }) {
+// ── HighlightCard — cada card com cor própria ────────────────────────────────
+const HIGHLIGHT_THEMES = {
+  repeated: {
+    bg: "rgba(6,182,212,0.12)",
+    border: "rgba(6,182,212,0.35)",
+    glow: "rgba(6,182,212,0.15)",
+    iconBg: "rgba(6,182,212,0.2)",
+  },
+  closest_team: {
+    bg: "rgba(212,168,83,0.12)",
+    border: "rgba(212,168,83,0.35)",
+    glow: "rgba(212,168,83,0.15)",
+    iconBg: "rgba(212,168,83,0.2)",
+  },
+  closest_group: {
+    bg: "rgba(139,92,246,0.12)",
+    border: "rgba(139,92,246,0.35)",
+    glow: "rgba(139,92,246,0.15)",
+    iconBg: "rgba(139,92,246,0.2)",
+  },
+  lagging: {
+    bg: "rgba(239,68,68,0.12)",
+    border: "rgba(239,68,68,0.35)",
+    glow: "rgba(239,68,68,0.15)",
+    iconBg: "rgba(239,68,68,0.2)",
+  },
+};
+
+function HighlightCard({ theme = "repeated", label, logo, icon, iconColor, name, stat, statColor = "#34d399" }) {
+  const t = HIGHLIGHT_THEMES[theme];
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-zinc-800/60 last:border-0">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-zinc-800 ${iconColor}`}>
-        <i className={`bi ${icon} text-sm`} />
+    <motion.div
+      variants={FADE_UP}
+      whileHover={{ y: -5, boxShadow: `0 12px 36px rgba(0,0,0,0.5), 0 0 22px ${t.glow}` }}
+      transition={{ type: "spring", stiffness: 280, damping: 22 }}
+      className="rounded-xl p-4 flex gap-3 items-center relative overflow-hidden cursor-default"
+      style={{
+        background: t.bg,
+        border: `1px solid ${t.border}`,
+        boxShadow: `inset 0 1px 4px rgba(0,0,0,0.35)`,
+      }}
+    >
+      <div className="shrink-0">
+        {logo ? (
+          <img src={logo} className="w-12 h-12 object-contain drop-shadow-md" alt="" />
+        ) : (
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center"
+            style={{ background: t.iconBg }}
+          >
+            <i className={`bi ${icon} text-xl`} style={{ color: iconColor }} />
+          </div>
+        )}
       </div>
-      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        <span className="text-zinc-500 text-xs">{label}</span>
-        <div className="text-zinc-100 text-sm font-medium">{children}</div>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[10px] uppercase tracking-wider leading-tight" style={{ color: "#7a9bb5" }}>{label}</span>
+        <span className="text-sm font-semibold leading-snug truncate" style={{ color: "#e8d5b0" }}>{name}</span>
+        {stat && <span className="text-xs font-medium" style={{ color: statColor }}>{stat}</span>}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-const ALBUM_TYPES = [
-  { key: "brochura", label: "Brochura", price: 24.90 },
-  { key: "capadura", label: "Capa Dura", price: 77.40 },
-];
-const PACKET_PRICE = 7.00;
-const PACKET_SIZE = 7;
-const STICKER_UNIT_PRICE = PACKET_PRICE / PACKET_SIZE; // R$ 1,00
-
-const fmt = (v) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-function CostCard({ summary }) {
-  const [albumType, setAlbumType] = useState("brochura");
-  const album = ALBUM_TYPES.find((a) => a.key === albumType);
-
-  const cost = useMemo(() => {
-    const totalOwned = summary.coladas + summary.repetidas;
-    const packets = Math.ceil(totalOwned / PACKET_SIZE);
-    const packetsCost = packets * PACKET_PRICE;
-    const total = album.price + packetsCost;
-    const tradeValue = summary.repetidas * STICKER_UNIT_PRICE;
-    return { totalOwned, packets, packetsCost, total, tradeValue };
-  }, [summary, album]);
-
+// ── SurfaceCard ───────────────────────────────────────────────────────────────
+function SurfaceCard({ children, className = "", style = {} }) {
   return (
-    <Card className="p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
-          Estimativa de gastos
-        </span>
-        <div className="flex gap-1">
-          {ALBUM_TYPES.map((a) => (
-            <button
-              key={a.key}
-              onClick={() => setAlbumType(a.key)}
-              className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-                albumType === a.key
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-zinc-500 text-xs">Figurinhas em mãos</span>
-          <span className="text-zinc-100 text-xl font-bold tabular-nums">{cost.totalOwned}</span>
-          <span className="text-zinc-600 text-xs">{summary.coladas} únicas + {summary.repetidas} extras</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-zinc-500 text-xs">Pacotinhos</span>
-          <span className="text-zinc-100 text-xl font-bold tabular-nums">~{cost.packets}</span>
-          <span className="text-zinc-600 text-xs">{fmt(PACKET_PRICE)} cada · {PACKET_SIZE} fig.</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-zinc-500 text-xs">Gasto em pacotinhos</span>
-          <span className="text-emerald-400 text-xl font-bold tabular-nums">{fmt(cost.packetsCost)}</span>
-          <span className="text-zinc-600 text-xs">estimativa mínima</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-zinc-500 text-xs">Total (álbum + pacs.)</span>
-          <span className="text-amber-400 text-xl font-bold tabular-nums">{fmt(cost.total)}</span>
-          <span className="text-zinc-600 text-xs">álbum {album.label}: {fmt(album.price)}</span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-zinc-500 text-xs">Valor em Repetidas</span>
-          <span className="text-sky-400 text-xl font-bold tabular-nums">{fmt(cost.tradeValue)}</span>
-          <span className="text-zinc-600 text-xs">{summary.repetidas} extras × {fmt(STICKER_UNIT_PRICE)}</span>
-        </div>
-      </div>
-    </Card>
+    <motion.div
+      variants={FADE_UP}
+      className={`rounded-2xl p-6 ${className}`}
+      style={{
+        background: SURFACE,
+        border: `1px solid ${COPPER}20`,
+        boxShadow: `inset 0 2px 8px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.35)`,
+        ...style,
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
+function SectionLabel({ children }) {
+  return (
+    <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: COPPER }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [error, setError] = useState(null);
+  const [stats,   setStats]   = useState(null);
+  const [error,   setError]   = useState(null);
 
   useEffect(() => {
     Promise.all([api.getSummary(), api.getStats()])
@@ -173,148 +262,152 @@ export default function Dashboard() {
   }, []);
 
   if (error) return <p className="text-rose-400 text-sm">{error}</p>;
+
   if (!summary || !stats) return (
     <div className="flex flex-col gap-8 animate-pulse">
-      <div className="h-10 w-56 rounded-lg bg-zinc-800" />
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => <div key={i} className="h-28 rounded-xl bg-zinc-900 border border-zinc-800" />)}
+      <div className="h-10 w-56 rounded-lg" style={{ background: SURFACE }} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-28 rounded-2xl" style={{ background: SURFACE }} />
+        ))}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="h-56 rounded-xl bg-zinc-900 border border-zinc-800" />
-        <div className="h-56 rounded-xl bg-zinc-900 border border-zinc-800" />
+        <div className="h-72 rounded-2xl" style={{ background: SURFACE }} />
+        <div className="h-72 rounded-2xl" style={{ background: SURFACE }} />
       </div>
-      <div className="h-40 rounded-xl bg-zinc-900 border border-zinc-800" />
-      <div className="h-64 rounded-xl bg-zinc-900 border border-zinc-800" />
+      <div className="h-56 rounded-2xl" style={{ background: SURFACE }} />
     </div>
   );
 
   const sortedGroups = [...stats.group_progress].sort((a, b) => b.pct - a.pct);
-
   const laggingGroup = stats.group_progress
     .filter((g) => g.pct > 0)
     .reduce((min, g) => (!min || g.pct < min.pct) ? g : min, null);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-center gap-3">
-        <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-10 h-10 object-contain" />
+    <motion.div
+      className="flex flex-col gap-8 relative z-10"
+      variants={PAGE_VARIANTS}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Header */}
+      <motion.div variants={FADE_UP} className="flex items-center gap-3">
+        <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-10 h-10 object-contain drop-shadow-lg" />
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Dashboard</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Visão geral do álbum Copa 2026</p>
+          <h1 className="text-2xl font-bold" style={{ color: GOLD, fontFamily: "'Playfair Display', Georgia, serif" }}>
+            Dashboard
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "#4a6785" }}>Visão geral do álbum Copa 2026</p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard icon="bi-collection" label="Total do álbum" value={summary.total} />
-        <StatCard icon="bi-check2-square" label="Coladas" value={summary.coladas} color="text-emerald-400" />
-        <StatCard icon="bi-x-square" label="Faltam" value={summary.faltam} color="text-rose-400" />
-        <StatCard icon="bi-percent" label="Conclusão" value={`${summary.percentual}%`} color="text-amber-400" />
-        <StatCard icon="bi-layers" label="Repetidas" value={summary.repetidas} sub="figurinhas extras" color="text-sky-400" />
-      </div>
+      {/* 5 metric cards */}
+      <MetricsBar summary={summary} />
 
+      {/* Main row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Progresso geral */}
-        <Card className="p-6 flex flex-col items-center gap-4">
-          <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider self-start">
-            Progresso geral
-          </span>
-          <ProgressRing pct={summary.percentual} />
-          <div className="flex gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-              <span className="text-zinc-400">Coladas: <strong className="text-zinc-100">{summary.coladas}</strong></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block" />
-              <span className="text-zinc-400">Faltam: <strong className="text-zinc-100">{summary.faltam}</strong></span>
-            </div>
+
+        {/* Progresso Geral — com blobs de gradiente no fundo */}
+        <SurfaceCard
+          className="flex flex-col items-center justify-center gap-4 relative overflow-hidden"
+          style={{ minHeight: "320px" }}
+        >
+          {/* abstract gradient blobs */}
+          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+            <div style={{
+              position: "absolute", width: 220, height: 220, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(139,92,246,0.28) 0%, transparent 70%)",
+              top: "-40px", left: "-40px", filter: "blur(24px)",
+            }} />
+            <div style={{
+              position: "absolute", width: 200, height: 200, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(16,185,129,0.22) 0%, transparent 70%)",
+              bottom: "-30px", right: "-30px", filter: "blur(24px)",
+            }} />
+            <div style={{
+              position: "absolute", width: 160, height: 160, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(239,68,68,0.18) 0%, transparent 70%)",
+              top: "30%", right: "10%", filter: "blur(20px)",
+            }} />
+            <div style={{
+              position: "absolute", width: 140, height: 140, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(6,182,212,0.18) 0%, transparent 70%)",
+              bottom: "20%", left: "5%", filter: "blur(18px)",
+            }} />
           </div>
-        </Card>
+
+          <SectionLabel>Progresso Geral</SectionLabel>
+          <DoughnutRing pct={summary.percentual} />
+        </SurfaceCard>
 
         {/* Destaques */}
-        <Card className="p-6 flex flex-col gap-1">
-          <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-2">
-            Destaques
-          </span>
-
-          {stats.most_repeated ? (
-            <HighlightRow icon="bi-layers-fill" iconColor="text-sky-400" label="Figurinha mais repetida">
-              <span className="font-mono text-sky-300 text-xs bg-zinc-800 px-1.5 py-0.5 rounded mr-2">
-                {stats.most_repeated.code}
-              </span>
-              {stats.most_repeated.section_name}
-              <span className="text-amber-400 ml-2 text-xs">×{stats.most_repeated.quantity - 1}</span>
-            </HighlightRow>
-          ) : (
-            <HighlightRow icon="bi-layers-fill" iconColor="text-sky-400" label="Figurinha mais repetida">
-              <span className="text-zinc-600">Nenhuma ainda</span>
-            </HighlightRow>
-          )}
-
-          {stats.closest_team ? (
-            <HighlightRow icon="bi-trophy-fill" iconColor="text-amber-400" label="Time mais perto de completar">
-              <div className="flex items-center gap-2">
-                {LOGOS[stats.closest_team.section_code] && (
-                  <img src={LOGOS[stats.closest_team.section_code]} className="w-5 h-5 object-contain" />
-                )}
-                <span>{stats.closest_team.section_name}</span>
-                <span className="text-zinc-500 text-xs tabular-nums">
-                  {stats.closest_team.coladas}/{stats.closest_team.total}
-                  <span className="text-emerald-400 ml-1">({stats.closest_team.pct}%)</span>
-                </span>
-              </div>
-            </HighlightRow>
-          ) : (
-            <HighlightRow icon="bi-trophy-fill" iconColor="text-amber-400" label="Time mais perto de completar">
-              <span className="text-zinc-600">Nenhum ainda</span>
-            </HighlightRow>
-          )}
-
-          {stats.closest_group ? (
-            <HighlightRow icon="bi-star-fill" iconColor="text-emerald-400" label="Grupo mais perto de completar">
-              <span>{stats.closest_group.group}</span>
-              <span className="text-zinc-500 text-xs tabular-nums ml-2">
-                {stats.closest_group.coladas}/{stats.closest_group.total}
-                <span className="text-emerald-400 ml-1">({stats.closest_group.pct}%)</span>
-              </span>
-            </HighlightRow>
-          ) : (
-            <HighlightRow icon="bi-star-fill" iconColor="text-emerald-400" label="Grupo mais perto de completar">
-              <span className="text-zinc-600">Nenhum ainda</span>
-            </HighlightRow>
-          )}
-
-          {laggingGroup ? (
-            <HighlightRow icon="bi-exclamation-triangle-fill" iconColor="text-rose-400" label="Grupo mais atrasado">
-              <span>{laggingGroup.group}</span>
-              <span className="text-zinc-500 text-xs tabular-nums ml-2">
-                {laggingGroup.coladas}/{laggingGroup.total}
-                <span className="text-rose-400 ml-1">({laggingGroup.pct}%)</span>
-              </span>
-            </HighlightRow>
-          ) : (
-            <HighlightRow icon="bi-exclamation-triangle-fill" iconColor="text-rose-400" label="Grupo mais atrasado">
-              <span className="text-zinc-600">Nenhum iniciado</span>
-            </HighlightRow>
-          )}
-        </Card>
+        <SurfaceCard className="flex flex-col gap-3">
+          <SectionLabel>Destaques</SectionLabel>
+          <motion.div
+            className="grid grid-cols-2 gap-3 flex-1"
+            variants={STAGGER_GRID}
+            initial="hidden"
+            animate="visible"
+          >
+            <HighlightCard
+              theme="repeated"
+              label="Figurinha Mais Repetida"
+              logo={stats.most_repeated && LOGOS[stats.most_repeated.code.replace(/\d+$/, "")]}
+              icon="bi-layers-fill"
+              iconColor="#06b6d4"
+              name={stats.most_repeated ? stats.most_repeated.section_name : "Nenhuma ainda"}
+              stat={stats.most_repeated ? `×${stats.most_repeated.quantity - 1} cópias` : null}
+              statColor="#06b6d4"
+            />
+            <HighlightCard
+              theme="closest_team"
+              label="Time Mais Perto de Completar"
+              logo={stats.closest_team && LOGOS[stats.closest_team.section_code]}
+              icon="bi-trophy-fill"
+              iconColor={GOLD}
+              name={stats.closest_team ? stats.closest_team.section_name : "Nenhum ainda"}
+              stat={stats.closest_team ? `${stats.closest_team.coladas}/${stats.closest_team.total} (${stats.closest_team.pct}%)` : null}
+              statColor="#34d399"
+            />
+            <HighlightCard
+              theme="closest_group"
+              label="Grupo Mais Perto de Completar"
+              icon="bi-star-fill"
+              iconColor="#a78bfa"
+              name={stats.closest_group ? stats.closest_group.group : "Nenhum ainda"}
+              stat={stats.closest_group ? `${stats.closest_group.coladas}/${stats.closest_group.total} (${stats.closest_group.pct}%)` : null}
+              statColor="#a78bfa"
+            />
+            <HighlightCard
+              theme="lagging"
+              label="Grupo Mais Atrasado"
+              icon="bi-exclamation-triangle-fill"
+              iconColor="#f87171"
+              name={laggingGroup ? laggingGroup.group : "Nenhum iniciado"}
+              stat={laggingGroup ? `${laggingGroup.coladas}/${laggingGroup.total} (${laggingGroup.pct}%)` : null}
+              statColor="#f87171"
+            />
+          </motion.div>
+        </SurfaceCard>
       </div>
 
-      {/* Estimativa de gastos */}
-      <CostCard summary={summary} />
-
-      {/* Progresso por grupo */}
-      <Card className="p-6 flex flex-col gap-4">
-        <span className="text-zinc-400 text-sm font-medium uppercase tracking-wider">
-          Progresso por grupo
-        </span>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-1">
-          {sortedGroups.map((g) => (
-            <GroupProgressBar key={g.group} {...g} />
-          ))}
+      {/* Progresso por Grupo */}
+      <SurfaceCard>
+        <div className="flex flex-col gap-4">
+          <SectionLabel>Progresso por Grupo</SectionLabel>
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2"
+            variants={STAGGER_GRID}
+            initial="hidden"
+            animate="visible"
+          >
+            {sortedGroups.map((g) => (
+              <GroupProgressBar key={g.group} {...g} />
+            ))}
+          </motion.div>
         </div>
-      </Card>
-    </div>
+      </SurfaceCard>
+    </motion.div>
   );
 }

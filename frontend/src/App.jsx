@@ -16,7 +16,7 @@ function Navbar({ onLogout }) {
     }`;
 
   return (
-    <nav className="bg-zinc-950 border-b border-zinc-800/60 px-3 sm:px-6">
+    <nav className="sticky top-0 z-40 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800/60 px-3 sm:px-6">
       <div className="max-w-7xl mx-auto flex items-center gap-1 h-12">
         <span className="text-zinc-100 font-bold text-sm tracking-wider uppercase mr-3 sm:mr-5 flex items-center gap-2 shrink-0">
           <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-6 h-6 object-contain" />

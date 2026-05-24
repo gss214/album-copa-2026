@@ -1,8 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { motion } from "framer-motion";
 import { api } from "@/api";
-import { Card } from "@/components/ui/card";
 import { LOGOS } from "@/lib/logos";
+import { getSectionInfo } from "@/lib/albumPages";
 
+// ── Paleta (espelha Dashboard) ───────────────────────────────────────────────
+const SURFACE   = "#132030";
+const SURFACE_2 = "#1a2d42";
+const GOLD      = "#d4a853";
+const COPPER    = "#b87333";
+const APP_BG    = "#0d1b2a";
+
+// ── Constantes ───────────────────────────────────────────────────────────────
 const GROUPS = [
   "Todos", "FWC",
   "Grupo A", "Grupo B", "Grupo C", "Grupo D",
@@ -10,13 +19,10 @@ const GROUPS = [
   "Grupo I", "Grupo J", "Grupo K", "Grupo L",
   "Coca-Cola",
 ];
-
 const EXCLUDED_GROUPS = new Set(["Raras"]);
 
-const normalize = (s) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const normalize = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-// Stickers 1 = Escudo, 13 = Perfilada (only for team sections, not FWC/CC)
 const SPECIAL_LABELS = { "1": "Escudo", "13": "Perfilada" };
 
 function isSpecialSticker(s) {
@@ -24,13 +30,13 @@ function isSpecialSticker(s) {
     s.section_code !== "FWC" && s.section_code !== "CC";
 }
 
+// ── StickerTile ──────────────────────────────────────────────────────────────
 function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const [loading, setLoading] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
   const longPressTimer = useRef(null);
   const touchOrigin = useRef(null);
   const didScroll = useRef(false);
-
   const MOVE_THRESHOLD = 8;
 
   const increment = async () => {
@@ -78,7 +84,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   };
 
   const onTouchEnd = (e) => {
-    e.preventDefault(); // prevent synthetic click
+    e.preventDefault();
     const wasShortTap = !!longPressTimer.current;
     cancelPress();
     if (wasShortTap && !didScroll.current) increment();
@@ -95,8 +101,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       : "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30 hover:bg-emerald-500/30";
 
   const specialLabel = SPECIAL_LABELS[sticker.number] && isSpecial
-    ? SPECIAL_LABELS[sticker.number]
-    : null;
+    ? SPECIAL_LABELS[sticker.number] : null;
 
   const titleParts = [];
   if (specialLabel) titleParts.push(specialLabel);
@@ -138,12 +143,16 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   );
 }
 
+// ── TeamLogo ─────────────────────────────────────────────────────────────────
 function TeamLogo({ logo, sectionCode, sectionName }) {
   const [error, setError] = useState(false);
   const initials = sectionCode.slice(0, 3).toUpperCase();
   if (!logo || error) {
     return (
-      <span className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+      <span
+        className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+        style={{ background: SURFACE_2, color: "#7a9bb5" }}
+      >
         {initials}
       </span>
     );
@@ -152,60 +161,104 @@ function TeamLogo({ logo, sectionCode, sectionName }) {
     <img
       src={logo}
       alt={sectionName}
-      className="w-8 h-8 object-contain shrink-0"
+      className="w-9 h-9 object-contain shrink-0 drop-shadow-md"
       onError={() => setError(true)}
     />
   );
 }
 
+// ── TeamCard ─────────────────────────────────────────────────────────────────
 function TeamCard({ sectionName, sectionCode, stickers, onUpdate, onlyMissing, withRepeated }) {
   const coladas = stickers.filter((s) => s.quantity >= 1).length;
-  const total = stickers.length;
-  const pct = total ? Math.round((coladas / total) * 100) : 0;
-  const done = coladas === total;
-  const logo = LOGOS[sectionCode];
+  const total   = stickers.length;
+  const pct     = total ? Math.round((coladas / total) * 100) : 0;
+  const done    = coladas === total;
+  const logo    = LOGOS[sectionCode];
+  const info    = getSectionInfo(sectionCode, sectionName);
+
+  const barColor = done ? "#34d399" : pct >= 50 ? "#f59e0b" : "#60a5fa";
 
   return (
-    <Card className="p-4 flex flex-col gap-3">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="rounded-2xl p-4 flex flex-col gap-3"
+      style={{
+        background: SURFACE,
+        border: `1px solid ${done ? "#34d39930" : `${COPPER}22`}`,
+        boxShadow: done
+          ? "inset 0 2px 8px rgba(0,0,0,0.45), 0 0 16px rgba(52,211,153,0.08)"
+          : "inset 0 2px 8px rgba(0,0,0,0.5)",
+      }}
+    >
+      {/* Header */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <TeamLogo logo={logo} sectionCode={sectionCode} sectionName={sectionName} />
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-zinc-200 text-sm font-semibold leading-tight truncate">
+              <span className="text-sm font-semibold leading-tight truncate" style={{ color: "#e8d5b0" }}>
                 {sectionName}
               </span>
-              <span className="text-zinc-600 text-xs font-mono">{sectionCode}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono" style={{ color: "#4a6785" }}>{sectionCode}</span>
+                {info?.pages && (
+                  <span className="text-[10px]" style={{ color: `${COPPER}80` }}>pg. {info.pages}</span>
+                )}
+              </div>
             </div>
           </div>
-          <span className={`text-xs tabular-nums font-medium shrink-0 ${done ? "text-emerald-400" : "text-zinc-500"}`}>
+          <span
+            className="text-xs tabular-nums font-semibold shrink-0"
+            style={{ color: done ? "#34d399" : "#7a9bb5" }}
+          >
             {coladas}/{total}
           </span>
         </div>
-        {/* Micro progress bar at the bottom of the header */}
-        <div className="h-0.5 bg-zinc-800 rounded-full overflow-hidden">
+        {/* Progress bar */}
+        <div className="h-0.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
           <div
-            className={`h-0.5 rounded-full transition-all duration-300 ${done ? "bg-emerald-400" : "bg-emerald-600"}`}
-            style={{ width: `${pct}%` }}
+            className="h-0.5 rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, background: barColor }}
           />
         </div>
       </div>
 
+      {/* Sticker grid */}
       <div className="grid grid-cols-5 gap-1">
         {stickers.map((s) => (
-          <StickerTile key={s.code} sticker={s} onUpdate={onUpdate} onlyMissing={onlyMissing} withRepeated={withRepeated} />
+          <StickerTile
+            key={s.code}
+            sticker={s}
+            onUpdate={onUpdate}
+            onlyMissing={onlyMissing}
+            withRepeated={withRepeated}
+          />
         ))}
       </div>
-    </Card>
+    </motion.div>
   );
 }
 
+// ── GroupSection ─────────────────────────────────────────────────────────────
 function GroupSection({ groupName, teamMap, onUpdate, onlyMissing, withRepeated }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-2">
-        {groupName}
-      </h2>
+      <div
+        className="flex items-center gap-3 pb-2"
+        style={{ borderBottom: `1px solid ${COPPER}25` }}
+      >
+        <span
+          className="text-[11px] font-semibold uppercase tracking-widest"
+          style={{ color: COPPER }}
+        >
+          {groupName}
+        </span>
+        <span className="text-[10px]" style={{ color: "#4a6785" }}>
+          {teamMap.size} {teamMap.size === 1 ? "seção" : "seções"}
+        </span>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
         {[...teamMap.entries()].map(([key, stickers]) => {
           const first = stickers[0];
@@ -226,21 +279,29 @@ function GroupSection({ groupName, teamMap, onUpdate, onlyMissing, withRepeated 
   );
 }
 
+// ── Filtros ──────────────────────────────────────────────────────────────────
 const STATUS_FILTERS = [
-  { key: "all", label: "Todas" },
-  { key: "incomplete", label: "Incompletas" },
-  { key: "complete", label: "Completas" },
+  { key: "all",         label: "Todas" },
+  { key: "incomplete",  label: "Incompletas" },
+  { key: "complete",    label: "Completas" },
   { key: "not_started", label: "Não iniciadas" },
 ];
 
-const STATUS_ACTIVE_CLS = {
-  all: "bg-zinc-700 text-zinc-100",
-  incomplete: "bg-amber-400 text-zinc-900",
-  complete: "bg-sky-500 text-white",
-  not_started: "bg-zinc-600 text-zinc-100",
+const STATUS_ACTIVE = {
+  all:         { background: `${COPPER}40`, color: GOLD },
+  incomplete:  { background: "rgba(245,158,11,0.2)", color: "#f59e0b" },
+  complete:    { background: "rgba(52,211,153,0.15)", color: "#34d399" },
+  not_started: { background: `${SURFACE_2}`, color: "#7a9bb5" },
 };
 
-const INACTIVE_CLS = "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800";
+const PILL_INACTIVE = {
+  background: `${SURFACE_2}`,
+  color: "#4a6785",
+};
+
+function pill(active, activeStyle) {
+  return active ? activeStyle : PILL_INACTIVE;
+}
 
 function teamStatus(stickers) {
   const coladas = stickers.filter((s) => s.quantity >= 1).length;
@@ -253,70 +314,186 @@ function teamHasRepeated(stickers) {
   return stickers.some((s) => s.quantity > 1);
 }
 
-function ImportConfirmModal({ onConfirm, onCancel, count }) {
+// ── Toast ────────────────────────────────────────────────────────────────────
+function StickerToast({ toast }) {
+  if (!toast) return null;
+  const { code, sectionName, newQty, removed } = toast;
+  const repeated = !removed && newQty > 1;
+
+  const style = removed
+    ? { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }
+    : repeated
+      ? { background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }
+      : { background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "#6ee7b7" };
+
+  const icon = removed ? "bi-dash-circle-fill" : repeated ? "bi-layers-fill" : "bi-check-circle-fill";
+  const iconColor = removed ? "#f87171" : repeated ? "#f59e0b" : "#34d399";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-            <i className="bi bi-exclamation-triangle-fill" />
-          </div>
-          <div>
-            <p className="text-zinc-100 font-semibold text-sm">Substituir dados?</p>
-            <p className="text-zinc-500 text-xs mt-0.5">
-              Você já tem figurinhas marcadas. O CSV importado irá substituir todas as quantidades.
-            </p>
-          </div>
-        </div>
-        <p className="text-zinc-400 text-xs bg-zinc-800 rounded-lg px-3 py-2">
-          <span className="text-zinc-100 font-semibold">{count} figurinhas</span> serão atualizadas.
-        </p>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors font-medium"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 text-xs rounded-lg bg-amber-500 text-zinc-900 hover:bg-amber-400 transition-colors font-semibold"
-          >
-            Importar assim mesmo
-          </button>
-        </div>
+    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium whitespace-nowrap" style={style}>
+        <i className={`bi ${icon} text-base`} style={{ color: iconColor }} />
+        <span className="font-mono font-semibold">{code}</span>
+        <span className="text-xs font-sans font-normal" style={{ color: "#4a6785" }}>{sectionName}</span>
+        {repeated && (
+          <span className="bg-amber-500 text-zinc-900 text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+            ×{newQty}
+          </span>
+        )}
+        {removed && newQty > 0 && (
+          <span className="text-xs font-sans font-normal" style={{ color: "#4a6785" }}>→ ×{newQty}</span>
+        )}
       </div>
     </div>
   );
 }
 
+// ── Modais ───────────────────────────────────────────────────────────────────
+function Modal({ children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div
+        className="rounded-2xl p-6 max-w-sm w-full flex flex-col gap-4 shadow-2xl"
+        style={{ background: SURFACE, border: `1px solid ${COPPER}30` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ClearRepeatedModal({ onConfirm, onCancel, count }) {
+  return (
+    <Modal>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(239,68,68,0.15)", color: "#f87171" }}
+        >
+          <i className="bi bi-trash3-fill" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: "#e8d5b0" }}>Limpar repetidas?</p>
+          <p className="text-xs mt-0.5" style={{ color: "#4a6785" }}>
+            Todas as figurinhas com mais de 1 cópia voltarão para quantidade 1.
+          </p>
+        </div>
+      </div>
+      <p className="text-xs rounded-xl px-3 py-2" style={{ background: SURFACE_2, color: "#7a9bb5" }}>
+        <span className="font-semibold" style={{ color: "#e8d5b0" }}>{count} figurinha{count !== 1 ? "s" : ""}</span> terão as extras removidas.
+      </p>
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-xs rounded-lg font-medium transition-colors"
+          style={{ background: SURFACE_2, color: "#7a9bb5" }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 text-xs rounded-lg font-semibold transition-colors"
+          style={{ background: "rgba(239,68,68,0.8)", color: "#fff" }}
+        >
+          Limpar
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ImportConfirmModal({ onConfirm, onCancel, count }) {
+  return (
+    <Modal>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}
+        >
+          <i className="bi bi-exclamation-triangle-fill" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: "#e8d5b0" }}>Substituir dados?</p>
+          <p className="text-xs mt-0.5" style={{ color: "#4a6785" }}>
+            O CSV importado irá substituir todas as quantidades atuais.
+          </p>
+        </div>
+      </div>
+      <p className="text-xs rounded-xl px-3 py-2" style={{ background: SURFACE_2, color: "#7a9bb5" }}>
+        <span className="font-semibold" style={{ color: "#e8d5b0" }}>{count} figurinhas</span> serão atualizadas.
+      </p>
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-xs rounded-lg font-medium transition-colors"
+          style={{ background: SURFACE_2, color: "#7a9bb5" }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 text-xs rounded-lg font-semibold transition-colors"
+          style={{ background: "rgba(245,158,11,0.85)", color: "#1a1a1a" }}
+        >
+          Importar assim mesmo
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Album ────────────────────────────────────────────────────────────────────
 export default function Album() {
-  const [stickers, setStickers] = useState([]);
-  const [group, setGroup] = useState("Todos");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [specialOnly, setSpecialOnly] = useState(false);
-  const [onlyMissing, setOnlyMissing] = useState(false);
-  const [withRepeated, setWithRepeated] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [importError, setImportError] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [pendingImport, setPendingImport] = useState(null);
-  const fileInputRef = useRef(null);
+  const [stickers,        setStickers]        = useState([]);
+  const [group,           setGroup]           = useState("Todos");
+  const [statusFilter,    setStatusFilter]    = useState("all");
+  const [search,          setSearch]          = useState("");
+  const [specialOnly,     setSpecialOnly]     = useState(false);
+  const [onlyMissing,     setOnlyMissing]     = useState(false);
+  const [withRepeated,    setWithRepeated]    = useState(false);
+  const [filtersOpen,     setFiltersOpen]     = useState(false);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState(null);
+  const [importError,     setImportError]     = useState(null);
+  const [importing,       setImporting]       = useState(false);
+  const [pendingImport,   setPendingImport]   = useState(null);
+  const [clearingRepeated,setClearingRepeated]= useState(false);
+  const [showClearModal,  setShowClearModal]  = useState(false);
+  const [toast,           setToast]           = useState(null);
+  const toastTimer  = useRef(null);
+  const fileInputRef= useRef(null);
 
   useEffect(() => {
-    api
-      .getStickers()
+    api.getStickers()
       .then(setStickers)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
   const handleUpdate = async (code, qty) => {
+    const prev = stickers.find((s) => s.code === code);
     const updated = await api.updateSticker(code, qty);
-    setStickers((prev) => prev.map((s) => (s.code === updated.code ? updated : s)));
+    setStickers((cur) => cur.map((s) => (s.code === updated.code ? updated : s)));
+    if (updated.quantity !== prev?.quantity) {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      setToast({ code: updated.code, sectionName: updated.section_name, newQty: updated.quantity, removed: updated.quantity < (prev?.quantity ?? 0) });
+      toastTimer.current = setTimeout(() => setToast(null), 2000);
+    }
+  };
+
+  const handleClearRepeated = async () => {
+    setClearingRepeated(true);
+    try {
+      await api.clearRepeated();
+      setStickers(await api.getStickers());
+      setShowClearModal(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setClearingRepeated(false);
+    }
   };
 
   const handleExport = () => {
@@ -325,8 +502,7 @@ export default function Album() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    a.download = `album-copa-2026_${ts}.csv`;
+    a.download = `album-copa-2026_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -344,8 +520,7 @@ export default function Album() {
       const code = parts[0].trim();
       const quantity = parseInt(parts[1].trim(), 10);
       if (!code) throw new Error(`Código vazio na linha ${i + 1}.`);
-      if (isNaN(quantity) || quantity < 0)
-        throw new Error(`Quantidade inválida na linha ${i + 1}: "${parts[1]}"`);
+      if (isNaN(quantity) || quantity < 0) throw new Error(`Quantidade inválida na linha ${i + 1}: "${parts[1]}"`);
       items.push({ code, quantity });
     }
     if (!items.length) throw new Error("Nenhum dado encontrado no CSV.");
@@ -357,8 +532,7 @@ export default function Album() {
     setImportError(null);
     try {
       await api.bulkUpdate(items);
-      const updated = await api.getStickers();
-      setStickers(updated);
+      setStickers(await api.getStickers());
     } catch (e) {
       setImportError(e.message);
     } finally {
@@ -376,8 +550,7 @@ export default function Album() {
     reader.onload = (ev) => {
       try {
         const items = parseCSV(ev.target.result);
-        const hasData = stickers.some((s) => s.quantity > 0);
-        if (hasData) {
+        if (stickers.some((s) => s.quantity > 0)) {
           setPendingImport(items);
         } else {
           applyImport(items);
@@ -390,8 +563,6 @@ export default function Album() {
     reader.readAsText(file);
   };
 
-  // group_name → section_key → stickers[]
-  // specialOnly filters stickers to positions 1 and 13 (Escudo/Perfilada) only
   const grouped = useMemo(() => {
     const nq = normalize(search.trim());
     const byGroup = new Map();
@@ -400,7 +571,6 @@ export default function Album() {
     for (const s of stickers) {
       if (EXCLUDED_GROUPS.has(s.group_name)) continue;
       if (group !== "Todos" && s.group_name !== group) continue;
-
       if (nq) {
         const matches =
           normalize(s.code).includes(nq) ||
@@ -410,7 +580,6 @@ export default function Album() {
           normalize(s.player_name || "").includes(nq);
         if (!matches) continue;
       }
-
       if (specialOnly && !isSpecialSticker(s)) continue;
 
       const teamKey = `${s.group_name}__${s.section_code}__${s.section_name}`;
@@ -426,59 +595,76 @@ export default function Album() {
       if (!byGroup.has(groupName)) byGroup.set(groupName, new Map());
       byGroup.get(groupName).set(teamKey, teamStickers);
     }
-
     return byGroup;
   }, [stickers, group, statusFilter, search, specialOnly, withRepeated]);
 
-  const mainStickers = stickers.filter((s) => !EXCLUDED_GROUPS.has(s.group_name));
-  const coladas = mainStickers.filter((s) => s.quantity >= 1).length;
-  const total = mainStickers.length;
-  const pct = total ? Math.round((coladas / total) * 100) : 0;
+  const activeFilterCount = [
+    statusFilter !== "all", specialOnly, withRepeated, onlyMissing, group !== "Todos",
+  ].filter(Boolean).length;
+
+  // shared action button style
+  const actionBtn = (danger = false) => ({
+    background: SURFACE_2,
+    color: danger ? "#f87171" : "#7a9bb5",
+    border: `1px solid ${danger ? "rgba(239,68,68,0.2)" : `${COPPER}18`}`,
+  });
 
   return (
     <div className="flex flex-col gap-6">
+      <StickerToast toast={toast} />
+
+      {showClearModal && (
+        <ClearRepeatedModal
+          count={stickers.filter((s) => s.quantity > 1).length}
+          onConfirm={handleClearRepeated}
+          onCancel={() => setShowClearModal(false)}
+        />
+      )}
       {pendingImport && (
         <ImportConfirmModal
           count={pendingImport.length}
           onConfirm={() => applyImport(pendingImport)}
-          onCancel={() => {
-            setPendingImport(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-          }}
+          onCancel={() => { setPendingImport(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
         />
       )}
+      <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportFile} />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={handleImportFile}
-      />
-
-      {/* Static header — scrolls away */}
+      {/* ── Cabeçalho ────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Álbum</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">
-            Toque para marcar · segure para desmarcar
-          </p>
+        <div className="flex items-center gap-3">
+          <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-10 h-10 object-contain drop-shadow-lg" />
+          <div>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: GOLD, fontFamily: "'Playfair Display', Georgia, serif" }}
+            >
+              Álbum
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "#4a6785" }}>
+              Toque para marcar · segure para desmarcar
+            </p>
+          </div>
         </div>
+
+        {/* Ações */}
         <div className="flex items-center gap-3 flex-wrap">
-          {total > 0 && (
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <span className="text-emerald-400 font-semibold tabular-nums">{coladas}</span>
-              <span>/ {total}</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-amber-400 font-semibold tabular-nums">{pct}%</span>
-            </div>
-          )}
           <div className="flex items-center gap-2">
+            {stickers.some((s) => s.quantity > 1) && (
+              <button
+                onClick={() => setShowClearModal(true)}
+                disabled={clearingRepeated}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-all disabled:opacity-40"
+                style={actionBtn(true)}
+              >
+                <i className="bi bi-trash3" />
+                <span className="hidden sm:inline">{clearingRepeated ? "Limpando..." : "Limpar repetidas"}</span>
+              </button>
+            )}
             <button
               onClick={handleExport}
               disabled={loading || stickers.length === 0}
-              title="Exportar CSV"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors font-medium disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-all disabled:opacity-40"
+              style={actionBtn()}
             >
               <i className="bi bi-download" />
               Exportar
@@ -486,8 +672,8 @@ export default function Album() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
-              title="Importar CSV"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors font-medium disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-all disabled:opacity-40"
+              style={actionBtn()}
             >
               <i className="bi bi-upload" />
               {importing ? "Importando..." : "Importar"}
@@ -496,154 +682,152 @@ export default function Album() {
         </div>
       </div>
 
-      {/* ─── Sticky filter bar ─────────────────────────────────────── */}
-      {(() => {
-        const activeFilterCount = [
-          statusFilter !== "all",
-          specialOnly,
-          withRepeated,
-          onlyMissing,
-          group !== "Todos",
-        ].filter(Boolean).length;
-
-        return (
-          <div className="sticky top-0 z-30 bg-zinc-950 -mx-3 px-3 sm:-mx-6 sm:px-6 py-3 border-b border-zinc-800/80 flex flex-col gap-3">
-            {/* Search row + mobile filter toggle */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 sm:max-w-sm">
-                <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar time, jogador, grupo..."
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-colors"
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                  >
-                    <i className="bi bi-x text-sm" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filter toggle — mobile only */}
+      {/* ── Barra de filtros sticky ───────────────────────────────────── */}
+      <div
+        className="sticky top-12 z-30 -mx-3 px-3 sm:-mx-6 sm:px-6 py-3 flex flex-col gap-3"
+        style={{
+          background: APP_BG,
+          borderBottom: `1px solid ${COPPER}20`,
+        }}
+      >
+        {/* Busca + toggle mobile */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-sm">
+            <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: "#4a6785" }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar time, jogador, grupo..."
+              className="w-full rounded-xl pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-1 transition-colors placeholder-[#4a6785]"
+              style={{
+                background: SURFACE,
+                border: `1px solid ${COPPER}25`,
+                color: "#e8d5b0",
+              }}
+            />
+            {search && (
               <button
-                onClick={() => setFiltersOpen((v) => !v)}
-                className={`relative sm:hidden flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg font-semibold transition-colors ${
-                  filtersOpen
-                    ? "bg-zinc-700 text-zinc-100"
-                    : activeFilterCount > 0
-                    ? "bg-zinc-800 text-zinc-200"
-                    : "bg-zinc-800/60 text-zinc-400"
-                }`}
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "#4a6785" }}
               >
-                <i className="bi bi-sliders text-sm" />
-                Filtros
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-zinc-900 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                    {activeFilterCount}
-                  </span>
-                )}
+                <i className="bi bi-x text-sm" />
               </button>
-            </div>
-
-            {/* Expanded filters — always visible on desktop, toggle on mobile */}
-            <div className={`flex flex-col gap-2 ${filtersOpen ? "" : "hidden sm:flex"}`}>
-              {/* Status pills */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Status</span>
-                {STATUS_FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setStatusFilter(f.key === statusFilter && f.key !== "all" ? "all" : f.key)}
-                    className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-                      statusFilter === f.key ? STATUS_ACTIVE_CLS[f.key] : INACTIVE_CLS
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* View-mode pills */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Modo</span>
-
-                <button
-                  onClick={() => setSpecialOnly((v) => !v)}
-                  title="Mostrar apenas Escudo (1) e Perfilada (13)"
-                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
-                    specialOnly ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/40" : INACTIVE_CLS
-                  }`}
-                >
-                  <i className={`bi ${specialOnly ? "bi-star-fill" : "bi-star"} text-[10px]`} />
-                  Especiais
-                </button>
-
-                <button
-                  onClick={() => setWithRepeated((v) => !v)}
-                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-                    withRepeated ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : INACTIVE_CLS
-                  }`}
-                >
-                  Repetidas
-                </button>
-
-                <button
-                  onClick={() => setOnlyMissing((v) => !v)}
-                  title="Ocultar figurinhas já coladas — ver apenas os buracos"
-                  className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
-                    onlyMissing ? "bg-rose-500/20 text-rose-300 ring-1 ring-rose-500/40" : INACTIVE_CLS
-                  }`}
-                >
-                  <i className="bi bi-eye-slash-fill text-[10px]" />
-                  Apenas Faltantes
-                </button>
-              </div>
-
-              {/* Group pills */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-zinc-600 text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0">Grupo</span>
-                {GROUPS.map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGroup(g === group && g !== "Todos" ? "Todos" : g)}
-                    className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
-                      group === g ? "bg-zinc-100 text-zinc-900" : INACTIVE_CLS
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
-        );
-      })()}
 
-      {error && <p className="text-rose-400 text-sm">{error}</p>}
-      {importError && (
-        <p className="text-rose-400 text-sm flex items-center gap-2">
-          <i className="bi bi-exclamation-circle" />
-          {importError}
+          {/* Filter toggle */}
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="relative flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg font-semibold transition-colors"
+            style={filtersOpen
+              ? { background: `${COPPER}30`, color: GOLD }
+              : activeFilterCount > 0
+                ? { background: SURFACE, color: "#7a9bb5", border: `1px solid ${COPPER}25` }
+                : { background: SURFACE_2, color: "#4a6785" }
+            }
+          >
+            <i className="bi bi-sliders text-sm" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-zinc-900 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Filtros expandidos */}
+        <div className={`flex flex-col gap-2 ${filtersOpen ? "" : "hidden"}`}>
+          {/* Status */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0" style={{ color: "#4a6785" }}>Status</span>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key === statusFilter && f.key !== "all" ? "all" : f.key)}
+                className="px-3 py-1.5 text-xs rounded-full font-semibold transition-all"
+                style={pill(statusFilter === f.key, STATUS_ACTIVE[f.key])}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Modo */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0" style={{ color: "#4a6785" }}>Modo</span>
+            <button
+              onClick={() => setSpecialOnly((v) => !v)}
+              className="px-3 py-1.5 text-xs rounded-full font-semibold transition-all flex items-center gap-1.5"
+              style={pill(specialOnly, { background: "rgba(56,189,248,0.15)", color: "#38bdf8" })}
+            >
+              <i className={`bi ${specialOnly ? "bi-star-fill" : "bi-star"} text-[10px]`} />
+              Especiais
+            </button>
+            <button
+              onClick={() => setWithRepeated((v) => !v)}
+              className="px-3 py-1.5 text-xs rounded-full font-semibold transition-all"
+              style={pill(withRepeated, { background: "rgba(52,211,153,0.15)", color: "#34d399" })}
+            >
+              Repetidas
+            </button>
+            <button
+              onClick={() => setOnlyMissing((v) => !v)}
+              className="px-3 py-1.5 text-xs rounded-full font-semibold transition-all flex items-center gap-1.5"
+              style={pill(onlyMissing, { background: "rgba(239,68,68,0.15)", color: "#f87171" })}
+            >
+              <i className="bi bi-eye-slash-fill text-[10px]" />
+              Apenas Faltantes
+            </button>
+          </div>
+
+          {/* Grupo */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold uppercase tracking-wider w-12 shrink-0" style={{ color: "#4a6785" }}>Grupo</span>
+            {GROUPS.map((g) => (
+              <button
+                key={g}
+                onClick={() => setGroup(g === group && g !== "Todos" ? "Todos" : g)}
+                className="px-3 py-1 text-xs rounded-full font-medium transition-all"
+                style={pill(group === g, { background: `${COPPER}35`, color: GOLD })}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Erros ────────────────────────────────────────────────────── */}
+      {error && (
+        <p className="text-sm flex items-center gap-2" style={{ color: "#f87171" }}>
+          <i className="bi bi-exclamation-circle" />{error}
         </p>
       )}
+      {importError && (
+        <p className="text-sm flex items-center gap-2" style={{ color: "#f87171" }}>
+          <i className="bi bi-exclamation-circle" />{importError}
+        </p>
+      )}
+
+      {/* ── Loading skeleton ─────────────────────────────────────────── */}
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 animate-pulse">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-52 rounded-xl bg-zinc-900 border border-zinc-800" />
+            <div key={i} className="h-52 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${COPPER}15` }} />
           ))}
         </div>
       )}
 
-      {/* Content */}
+      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       {!loading && (
         <div className="flex flex-col gap-8">
           {grouped.size === 0 && (
-            <p className="text-zinc-600 text-sm">Nenhuma seleção encontrada com esse filtro.</p>
+            <p className="text-sm" style={{ color: "#4a6785" }}>
+              Nenhuma figurinha encontrada com esse filtro.
+            </p>
           )}
           {[...grouped.entries()].map(([groupName, teamMap]) => (
             <GroupSection
