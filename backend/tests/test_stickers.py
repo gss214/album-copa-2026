@@ -203,3 +203,35 @@ def test_logs_limit(client, sticker_factory, h):
 def test_logs_limit_invalid(client, h):
     assert client.get("/api/logs?limit=0", headers=h).status_code == 422
     assert client.get("/api/logs?limit=501", headers=h).status_code == 422
+
+
+# ── POST /stickers/clear-repeated ────────────────────────────────────────────
+
+def test_clear_repeated(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=3)
+    sticker_factory(code="BRA2", number="2", quantity=1, sort_order=101)
+    sticker_factory(code="BRA3", number="3", quantity=0, sort_order=102)
+    r = client.post("/api/stickers/clear-repeated", headers=h)
+    assert r.status_code == 200
+    assert r.json()["cleared"] == 1  # only BRA1 had qty > 1
+    stickers = {s["code"]: s for s in client.get("/api/stickers", headers=h).json()}
+    assert stickers["BRA1"]["quantity"] == 1
+    assert stickers["BRA2"]["quantity"] == 1  # unchanged
+    assert stickers["BRA3"]["quantity"] == 0  # unchanged
+
+
+def test_clear_repeated_creates_logs(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=4)
+    client.post("/api/stickers/clear-repeated", headers=h)
+    logs = client.get("/api/logs", headers=h).json()
+    assert len(logs) == 1
+    assert logs[0]["sticker_code"] == "BRA1"
+    assert logs[0]["quantity_before"] == 4
+    assert logs[0]["quantity_after"] == 1
+
+
+def test_clear_repeated_empty(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=1)
+    r = client.post("/api/stickers/clear-repeated", headers=h)
+    assert r.status_code == 200
+    assert r.json()["cleared"] == 0

@@ -1,9 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "@/api";
-import { Card } from "@/components/ui/card";
 import { LOGOS } from "@/lib/logos";
 import { RARE_PLAYERS, VARIANT_STYLES } from "@/lib/rarePlayers";
 
+// ── Paleta ───────────────────────────────────────────────────────────────────
+const SURFACE   = "#132030";
+const SURFACE_2 = "#1a2d42";
+const GOLD      = "#d4a853";
+const COPPER    = "#b87333";
+
+// ── VariantTile ───────────────────────────────────────────────────────────────
 function VariantTile({ sticker, onUpdate }) {
   const [loading, setLoading] = useState(false);
   const style = VARIANT_STYLES[sticker.number] ?? VARIANT_STYLES["Prata"];
@@ -44,11 +50,15 @@ function VariantTile({ sticker, onUpdate }) {
   );
 }
 
+// ── PlayerLogo ────────────────────────────────────────────────────────────────
 function PlayerLogo({ logo, sectionCode, country }) {
   const [error, setError] = useState(false);
   if (!logo || error) {
     return (
-      <span className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+      <span
+        className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+        style={{ background: SURFACE_2, color: "#7a9bb5" }}
+      >
         {sectionCode.slice(0, 3).toUpperCase()}
       </span>
     );
@@ -57,29 +67,42 @@ function PlayerLogo({ logo, sectionCode, country }) {
     <img
       src={logo}
       alt={country}
-      className="w-8 h-8 object-contain shrink-0"
+      className="w-9 h-9 object-contain shrink-0 drop-shadow-md"
       onError={() => setError(true)}
     />
   );
 }
 
+// ── PlayerCard ────────────────────────────────────────────────────────────────
 function PlayerCard({ sectionCode, stickers, onUpdate }) {
-  const player = RARE_PLAYERS[sectionCode];
-  const logo = player ? LOGOS[player.code] : null;
+  const player    = RARE_PLAYERS[sectionCode];
+  const logo      = player ? LOGOS[player.code] : null;
   const collected = stickers.filter((s) => s.quantity >= 1).length;
-  const complete = collected === 4;
+  const complete  = collected === 4;
 
   return (
-    <Card className="p-4 flex flex-col gap-3">
+    <div
+      className="rounded-2xl p-4 flex flex-col gap-3"
+      style={{
+        background: SURFACE,
+        border: `1px solid ${complete ? "#34d39930" : `${COPPER}22`}`,
+        boxShadow: complete
+          ? "inset 0 2px 8px rgba(0,0,0,0.45), 0 0 14px rgba(52,211,153,0.07)"
+          : "inset 0 2px 8px rgba(0,0,0,0.5)",
+      }}
+    >
       <div className="flex items-center gap-2.5">
         <PlayerLogo logo={logo} sectionCode={sectionCode} country={player?.country} />
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-          <span className="text-zinc-100 text-sm font-semibold leading-tight truncate">
+          <span className="text-sm font-semibold leading-tight truncate" style={{ color: "#e8d5b0" }}>
             {player?.name ?? sectionCode}
           </span>
-          <span className="text-zinc-500 text-xs truncate">{player?.country}</span>
+          <span className="text-xs truncate" style={{ color: "#4a6785" }}>{player?.country}</span>
         </div>
-        <span className={`text-xs tabular-nums font-medium shrink-0 ${complete ? "text-emerald-400" : "text-zinc-600"}`}>
+        <span
+          className="text-xs tabular-nums font-semibold shrink-0"
+          style={{ color: complete ? "#34d399" : "#4a6785" }}
+        >
           {collected}/4
         </span>
       </div>
@@ -89,14 +112,15 @@ function PlayerCard({ sectionCode, stickers, onUpdate }) {
           <VariantTile key={s.code} sticker={s} onUpdate={onUpdate} />
         ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
+// ── Raras ─────────────────────────────────────────────────────────────────────
 export default function Raras() {
   const [stickers, setStickers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
 
   useEffect(() => {
     api.getStickers({ group_name: "Raras" })
@@ -110,7 +134,6 @@ export default function Raras() {
     setStickers((prev) => prev.map((s) => (s.code === updated.code ? updated : s)));
   };
 
-  // section_code → stickers[]
   const byPlayer = useMemo(() => {
     const map = new Map();
     for (const s of stickers) {
@@ -120,29 +143,50 @@ export default function Raras() {
     return map;
   }, [stickers]);
 
-  const collected = stickers.filter((s) => s.quantity >= 1).length;
-  const total = stickers.length;
+  const collected       = stickers.filter((s) => s.quantity >= 1).length;
+  const total           = stickers.length;
   const completePlayers = [...byPlayer.values()].filter((s) => s.every((x) => x.quantity >= 1)).length;
+
+  const VARIANTS = [
+    { label: "Ouro",   color: "#eab308", bg: "rgba(234,179,8,0.12)",   border: "rgba(234,179,8,0.25)"   },
+    { label: "Prata",  color: "#d1d5db", bg: "rgba(209,213,219,0.1)",  border: "rgba(209,213,219,0.2)"  },
+    { label: "Bronze", color: "#c2763a", bg: "rgba(194,118,58,0.12)",  border: "rgba(194,118,58,0.25)"  },
+    { label: "Lilás",  color: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.25)" },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Cabeçalho */}
       <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Figurinhas Raras</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">
-            20 jogadores · 4 variantes cada — Ouro, Prata, Bronze e Lilás
-          </p>
+        <div className="flex items-center gap-3">
+          <img src="/logos/logo_copa_2026.png" alt="Copa 2026" className="w-10 h-10 object-contain drop-shadow-lg" />
+          <div>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: GOLD, fontFamily: "'Playfair Display', Georgia, serif" }}
+            >
+              Raras
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "#4a6785" }}>
+              20 jogadores · 4 variantes cada — Ouro, Prata, Bronze e Lilás
+            </p>
+          </div>
         </div>
+
+        {/* Stats chip */}
         {total > 0 && (
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-1.5 text-zinc-400">
-              <span className="text-emerald-400 font-semibold tabular-nums">{collected}</span>
-              <span>/ {total} figurinhas</span>
+          <div
+            className="flex items-center gap-3 text-sm px-4 py-2 rounded-xl"
+            style={{ background: SURFACE, border: `1px solid ${COPPER}20` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="tabular-nums font-semibold" style={{ color: "#34d399" }}>{collected}</span>
+              <span style={{ color: "#4a6785" }}>/ {total} fig.</span>
             </div>
-            <span className="text-zinc-700">·</span>
-            <div className="flex items-center gap-1.5 text-zinc-400">
-              <span className="text-amber-400 font-semibold tabular-nums">{completePlayers}</span>
-              <span>/ 20 jogadores completos</span>
+            <span style={{ color: `${COPPER}50` }}>·</span>
+            <div className="flex items-center gap-1.5">
+              <span className="tabular-nums font-semibold" style={{ color: GOLD }}>{completePlayers}</span>
+              <span style={{ color: "#4a6785" }}>/ 20 completos</span>
             </div>
           </div>
         )}
@@ -150,30 +194,36 @@ export default function Raras() {
 
       {/* Legenda de variantes */}
       <div className="flex items-center gap-2 flex-wrap">
-        {[
-          { label: "Ouro",   cls: "bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30" },
-          { label: "Prata",  cls: "bg-zinc-400/20 text-zinc-300 ring-1 ring-zinc-400/30" },
-          { label: "Bronze", cls: "bg-orange-700/20 text-orange-400 ring-1 ring-orange-600/30" },
-          { label: "Lilás",  cls: "bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30" },
-        ].map(({ label, cls }) => (
-          <span key={label} className={`px-2.5 py-1 text-xs rounded-full font-semibold ${cls}`}>
+        {VARIANTS.map(({ label, color, bg, border }) => (
+          <span
+            key={label}
+            className="px-2.5 py-1 text-xs rounded-full font-semibold"
+            style={{ background: bg, color, border: `1px solid ${border}` }}
+          >
             {label}
           </span>
         ))}
-        <span className="text-zinc-600 text-xs ml-1">
+        <span className="text-xs ml-1" style={{ color: "#4a6785" }}>
           Clique para marcar · clique direito para desmarcar
         </span>
       </div>
 
-      {error && <p className="text-rose-400 text-sm">{error}</p>}
+      {error && (
+        <p className="text-sm flex items-center gap-2" style={{ color: "#f87171" }}>
+          <i className="bi bi-exclamation-circle" />{error}
+        </p>
+      )}
+
+      {/* Skeleton */}
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 animate-pulse">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-zinc-900 border border-zinc-800" />
+            <div key={i} className="h-28 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${COPPER}15` }} />
           ))}
         </div>
       )}
 
+      {/* Grid */}
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
           {[...byPlayer.entries()].map(([sectionCode, playerStickers]) => (

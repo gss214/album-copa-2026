@@ -287,6 +287,29 @@ def _utc_iso(dt) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+class ClearRepeatedResult(BaseModel):
+    cleared: int
+
+
+@router.post("/stickers/clear-repeated", response_model=ClearRepeatedResult)
+def clear_repeated(db: Session = Depends(get_db)):
+    stickers = (
+        db.query(models.Sticker)
+        .filter(models.Sticker.quantity > 1)
+        .all()
+    )
+    for s in stickers:
+        db.add(models.StickerLog(
+            sticker_code=s.code,
+            sticker_section_name=s.section_name,
+            quantity_before=s.quantity,
+            quantity_after=1,
+        ))
+        s.quantity = 1
+    db.commit()
+    return ClearRepeatedResult(cleared=len(stickers))
+
+
 @router.get("/logs", response_model=List[LogOut])
 def get_logs(
     limit: int = Query(default=200, ge=1, le=500),
