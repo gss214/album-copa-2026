@@ -470,6 +470,8 @@ export default function Album() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
   const handleUpdate = async (code, qty) => {
     const prev = stickers.find((s) => s.code === code);
     const updated = await api.updateSticker(code, qty);
@@ -486,9 +488,11 @@ export default function Album() {
     try {
       await api.clearRepeated();
       setStickers(await api.getStickers());
+      setShowClearModal(false);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setClearingRepeated(false);
-      setShowClearModal(false);
     }
   };
 
@@ -695,12 +699,11 @@ export default function Album() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar time, jogador, grupo..."
-              className="w-full rounded-xl pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-1 transition-colors"
+              className="w-full rounded-xl pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-1 transition-colors placeholder-[#4a6785]"
               style={{
                 background: SURFACE,
                 border: `1px solid ${COPPER}25`,
                 color: "#e8d5b0",
-                "::placeholder": { color: "#4a6785" },
               }}
             />
             {search && (

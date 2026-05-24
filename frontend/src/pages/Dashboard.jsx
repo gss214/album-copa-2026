@@ -49,7 +49,7 @@ function AnimatedNumber({ to, style, className, prefix = "", suffix = "" }) {
   );
 }
 
-// ── MetricsBar — 5 cards individuais ────────────────────────────────────────
+// ── MetricsBar — 4 cards ────────────────────────────────────────────────────
 function MetricsBar({ summary }) {
   const metrics = [
     { icon: "bi-collection",    label: "Total do Álbum",  value: summary.total,      color: "#e8d5b0", suffix: ""  },
@@ -223,94 +223,6 @@ function HighlightCard({ theme = "repeated", label, logo, icon, iconColor, name,
   );
 }
 
-// ── CostCard ─────────────────────────────────────────────────────────────────
-const ALBUM_TYPES = [
-  { key: "brochura", label: "Brochura",  price: 24.90 },
-  { key: "capadura", label: "Capa Dura", price: 77.40 },
-];
-const PACKET_PRICE = 7.00;
-const PACKET_SIZE  = 7;
-const STICKER_UNIT = PACKET_PRICE / PACKET_SIZE;
-const fmt = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-function CostCard({ summary }) {
-  const [albumType, setAlbumType] = useState("brochura");
-  const album = ALBUM_TYPES.find((a) => a.key === albumType);
-
-  const cost = useMemo(() => {
-    const totalOwned  = summary.coladas + summary.repetidas;
-    const packets     = Math.ceil(totalOwned / PACKET_SIZE);
-    const packetsCost = packets * PACKET_PRICE;
-    const total       = album.price + packetsCost;
-    const tradeValue  = summary.repetidas * STICKER_UNIT;
-    return { totalOwned, packets, packetsCost, total, tradeValue };
-  }, [summary, album]);
-
-  const parchmentBg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
-
-  const fields = [
-    { label: "Figurinhas em mãos",    value: cost.totalOwned,       sub: `${summary.coladas} únicas + ${summary.repetidas} extras` },
-    { label: "Pacotinhos",            value: `~${cost.packets}`,    sub: `${fmt(PACKET_PRICE)} cada · ${PACKET_SIZE} fig.` },
-    { label: "Gasto em pacotinhos",   value: fmt(cost.packetsCost), sub: "estimativa mínima",                                        money: true },
-    { label: `Total (álbum + pacs.)`, value: fmt(cost.total),       sub: `álbum ${album.label}: ${fmt(album.price)}`,                money: true },
-    { label: "Valor em Repetidas",    value: fmt(cost.tradeValue),  sub: `${summary.repetidas} extras × ${fmt(STICKER_UNIT)}`,       money: true },
-  ];
-
-  return (
-    <motion.div
-      variants={FADE_UP}
-      className="rounded-2xl p-6 flex flex-col gap-5"
-      style={{
-        background: `${parchmentBg}, #f0e4c4`,
-        backgroundBlendMode: "multiply",
-        border: "1px solid #c4a96d",
-        boxShadow: "0 6px 24px rgba(0,0,0,0.4)",
-      }}
-    >
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs uppercase tracking-widest font-semibold flex items-center gap-2" style={{ color: "#7a5c30" }}>
-          <i className="bi bi-calculator" />
-          Estimativa de Gastos
-        </span>
-        <div className="flex gap-1">
-          {ALBUM_TYPES.map((a) => (
-            <button
-              key={a.key}
-              onClick={() => setAlbumType(a.key)}
-              className="px-3 py-1 text-xs rounded-full font-medium transition-all"
-              style={
-                albumType === a.key
-                  ? { background: "#c4a96d", color: "#3b2f1e", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.25)" }
-                  : { background: "#e8d5a8", color: "#7a5c30" }
-              }
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {fields.map((f) => (
-          <div key={f.label} className="flex flex-col gap-1">
-            <span className="text-[11px]" style={{ color: "#8a6d4e" }}>{f.label}</span>
-            <span
-              className="text-xl tabular-nums font-bold leading-tight"
-              style={{
-                color: f.money ? "#7a3020" : "#3b2f1e",
-                fontFamily: f.money ? "'Playfair Display', Georgia, serif" : "inherit",
-              }}
-            >
-              {f.value}
-            </span>
-            <span className="text-[10px]" style={{ color: "#a08060" }}>{f.sub}</span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 // ── SurfaceCard ───────────────────────────────────────────────────────────────
 function SurfaceCard({ children, className = "", style = {} }) {
   return (
@@ -354,8 +266,8 @@ export default function Dashboard() {
   if (!summary || !stats) return (
     <div className="flex flex-col gap-8 animate-pulse">
       <div className="h-10 w-56 rounded-lg" style={{ background: SURFACE }} />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[...Array(5)].map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="h-28 rounded-2xl" style={{ background: SURFACE }} />
         ))}
       </div>
@@ -441,7 +353,7 @@ export default function Dashboard() {
             <HighlightCard
               theme="repeated"
               label="Figurinha Mais Repetida"
-              logo={stats.most_repeated && LOGOS[stats.most_repeated.section_code]}
+              logo={stats.most_repeated && LOGOS[stats.most_repeated.code.replace(/\d+$/, "")]}
               icon="bi-layers-fill"
               iconColor="#06b6d4"
               name={stats.most_repeated ? stats.most_repeated.section_name : "Nenhuma ainda"}
