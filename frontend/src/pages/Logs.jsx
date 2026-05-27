@@ -34,7 +34,6 @@ function formatDate(isoString) {
 }
 
 function dayKey(isoString) {
-  // Extrai a data no fuso UTC-3
   const brt = toBRT(isoString);
   const y = brt.getFullYear();
   const m = String(brt.getMonth() + 1).padStart(2, "0");
@@ -61,8 +60,15 @@ function actionLabel(before, after) {
 }
 
 // ── LogRow ────────────────────────────────────────────────────────────────────
-function LogRow({ log, isLast }) {
+function LogRow({ log, isLast, onUndo }) {
+  const [undoing, setUndoing] = useState(false);
   const added = log.quantity_after > log.quantity_before;
+
+  const handleUndo = async () => {
+    setUndoing(true);
+    try { await onUndo(log.id); }
+    finally { setUndoing(false); }
+  };
 
   return (
     <div
@@ -102,10 +108,21 @@ function LogRow({ log, isLast }) {
         </div>
       </div>
 
-      <div className="text-right shrink-0">
+      <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs" style={{ color: "#4a6785" }} title={formatDate(log.created_at)}>
           {timeAgo(log.created_at)}
         </span>
+        <button
+          onClick={handleUndo}
+          disabled={undoing}
+          title="Desfazer"
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-40 hover:opacity-80"
+          style={{ background: SURFACE_2, color: "#7a9bb5", border: `1px solid ${COPPER}20` }}
+        >
+          {undoing
+            ? <i className="bi bi-arrow-repeat text-xs animate-spin" />
+            : <i className="bi bi-arrow-counterclockwise text-xs" />}
+        </button>
       </div>
     </div>
   );
@@ -116,16 +133,27 @@ export default function Logs() {
   const [logs,    setLogs]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [dayIdx,  setDayIdx]  = useState(0); // 0 = dia mais recente
+  const [dayIdx,  setDayIdx]  = useState(0);
 
-  useEffect(() => {
+  const fetchLogs = () =>
     api.getLogs()
       .then(setLogs)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
 
-  // Agrupa por dia, mais recente primeiro
+  useEffect(() => { fetchLogs(); }, []);
+
+  const handleUndo = async (logId) => {
+    try {
+      await api.undoLog(logId);
+      setLoading(true);
+      await fetchLogs();
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
+
   const days = useMemo(() => {
     const map = new Map();
     for (const log of logs) {
@@ -133,7 +161,6 @@ export default function Logs() {
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(log);
     }
-    // Ordena dias decrescente
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [logs]);
 
@@ -188,7 +215,6 @@ export default function Logs() {
               <i className="bi bi-chevron-left text-sm" />
             </button>
 
-            {/* Seletor de dias */}
             <div className="flex items-center gap-1.5 flex-wrap justify-center">
               {days.map(([key], i) => (
                 <button
@@ -242,7 +268,12 @@ export default function Logs() {
             }}
           >
             {currentLogs.map((log, i) => (
-              <LogRow key={log.id} log={log} isLast={i === currentLogs.length - 1} />
+              <LogRow
+                key={log.id}
+                log={log}
+                isLast={i === currentLogs.length - 1}
+                onUndo={handleUndo}
+              />
             ))}
           </div>
         </>

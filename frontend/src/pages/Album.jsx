@@ -30,28 +30,104 @@ function isSpecialSticker(s) {
     s.section_code !== "FWC" && s.section_code !== "CC";
 }
 
+// ── StickerConfirmModal ──────────────────────────────────────────────────────
+function StickerConfirmModal({ sticker, action, onConfirm, onCancel }) {
+  const isAdd = action === "add";
+  const newQty = isAdd ? sticker.quantity + 1 : sticker.quantity - 1;
+  const isFirstAdd  = isAdd && sticker.quantity === 0;
+  const isLastRemove = !isAdd && newQty === 0;
+
+  const accentColor = isAdd
+    ? isFirstAdd ? "#34d399" : "#f59e0b"
+    : "#f87171";
+  const accentBg = isAdd
+    ? isFirstAdd ? "rgba(52,211,153,0.12)" : "rgba(245,158,11,0.12)"
+    : "rgba(239,68,68,0.12)";
+  const icon = isAdd
+    ? isFirstAdd ? "bi-check-circle-fill" : "bi-layers-fill"
+    : "bi-dash-circle-fill";
+  const label = isAdd
+    ? isFirstAdd ? "Marcar como colada?" : "Adicionar repetida?"
+    : isLastRemove ? "Desmarcar figurinha?" : "Remover uma repetida?";
+
+  return (
+    <Modal>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base"
+          style={{ background: accentBg, color: accentColor }}
+        >
+          <i className={`bi ${icon}`} />
+        </div>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: "#e8d5b0" }}>{label}</p>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: "#7a9bb5" }}>
+            {sticker.code}
+            {sticker.player_name && (
+              <span className="font-sans font-normal ml-1" style={{ color: "#4a6785" }}>
+                · {sticker.player_name}
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+      {isAdd && !isFirstAdd && (
+        <p className="text-xs rounded-xl px-3 py-2" style={{ background: SURFACE_2, color: "#7a9bb5" }}>
+          Quantidade vai de{" "}
+          <span className="font-semibold" style={{ color: "#e8d5b0" }}>×{sticker.quantity}</span>
+          {" "}para{" "}
+          <span className="font-semibold" style={{ color: accentColor }}>×{newQty}</span>
+        </p>
+      )}
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-xs rounded-lg font-medium transition-colors"
+          style={{ background: SURFACE_2, color: "#7a9bb5" }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 text-xs rounded-lg font-semibold transition-colors"
+          style={{ background: accentColor, color: isAdd && !isFirstAdd ? "#1a1a1a" : isAdd ? "#0d1b2a" : "#fff" }}
+        >
+          Confirmar
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ── StickerTile ──────────────────────────────────────────────────────────────
 function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const [loading, setLoading] = useState(false);
   const [isPressing, setIsPressing] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // "add" | "remove"
   const longPressTimer = useRef(null);
   const touchOrigin = useRef(null);
   const didScroll = useRef(false);
   const MOVE_THRESHOLD = 8;
 
-  const increment = async () => {
+  const confirmAction = async () => {
+    const action = pendingAction;
+    setPendingAction(null);
     if (loading) return;
     setLoading(true);
-    try { await onUpdate(sticker.code, sticker.quantity + 1); }
+    const newQty = action === "add" ? sticker.quantity + 1 : sticker.quantity - 1;
+    try { await onUpdate(sticker.code, newQty); }
     finally { setLoading(false); }
   };
 
-  const decrement = async (e) => {
+  const increment = () => {
+    if (loading) return;
+    setPendingAction("add");
+  };
+
+  const decrement = (e) => {
     e?.preventDefault();
     if (loading || sticker.quantity === 0) return;
-    setLoading(true);
-    try { await onUpdate(sticker.code, sticker.quantity - 1); }
-    finally { setLoading(false); }
+    setPendingAction("remove");
   };
 
   const onTouchStart = (e) => {
@@ -110,6 +186,15 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
   const invisible = (onlyMissing && sticker.quantity >= 1) || (withRepeated && sticker.quantity <= 1);
 
   return (
+    <>
+    {pendingAction && (
+      <StickerConfirmModal
+        sticker={sticker}
+        action={pendingAction}
+        onConfirm={confirmAction}
+        onCancel={() => setPendingAction(null)}
+      />
+    )}
     <button
       onClick={increment}
       onContextMenu={decrement}
@@ -121,6 +206,11 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       title={titleParts.join(" — ")}
       className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""} ${isPressing ? "scale-90 ring-2 ring-amber-400/60" : ""}`}
     >
+      {loading && (
+        <span className="absolute inset-0 flex items-center justify-center rounded bg-black/30">
+          <i className="bi bi-arrow-repeat text-xs animate-spin opacity-80" />
+        </span>
+      )}
       <span className="leading-none">{sticker.number}</span>
       {sticker.player_name && (
         <span className="text-[8px] font-sans font-normal leading-tight text-center truncate w-full px-0.5 opacity-70">
@@ -140,6 +230,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
         </span>
       )}
     </button>
+    </>
   );
 }
 
@@ -317,24 +408,29 @@ function teamHasRepeated(stickers) {
 // ── Toast ────────────────────────────────────────────────────────────────────
 function StickerToast({ toast }) {
   if (!toast) return null;
-  const { code, sectionName, newQty, removed } = toast;
-  const repeated = !removed && newQty > 1;
+  const { code, sectionName, newQty, removed, error } = toast;
+  const repeated = !removed && !error && newQty > 1;
 
-  const style = removed
-    ? { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }
-    : repeated
-      ? { background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }
-      : { background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "#6ee7b7" };
+  const style = error
+    ? { background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#fca5a5" }
+    : removed
+      ? { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }
+      : repeated
+        ? { background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }
+        : { background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: "#6ee7b7" };
 
-  const icon = removed ? "bi-dash-circle-fill" : repeated ? "bi-layers-fill" : "bi-check-circle-fill";
-  const iconColor = removed ? "#f87171" : repeated ? "#f59e0b" : "#34d399";
+  const icon = error ? "bi-wifi-off" : removed ? "bi-dash-circle-fill" : repeated ? "bi-layers-fill" : "bi-check-circle-fill";
+  const iconColor = error ? "#f87171" : removed ? "#f87171" : repeated ? "#f59e0b" : "#34d399";
 
   return (
     <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
       <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium whitespace-nowrap" style={style}>
         <i className={`bi ${icon} text-base`} style={{ color: iconColor }} />
         <span className="font-mono font-semibold">{code}</span>
-        <span className="text-xs font-sans font-normal" style={{ color: "#4a6785" }}>{sectionName}</span>
+        {error
+          ? <span className="text-xs font-sans font-normal" style={{ color: "#f87171" }}>Erro ao salvar</span>
+          : <span className="text-xs font-sans font-normal" style={{ color: "#4a6785" }}>{sectionName}</span>
+        }
         {repeated && (
           <span className="bg-amber-500 text-zinc-900 text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
             ×{newQty}
@@ -474,12 +570,18 @@ export default function Album() {
 
   const handleUpdate = async (code, qty) => {
     const prev = stickers.find((s) => s.code === code);
-    const updated = await api.updateSticker(code, qty);
-    setStickers((cur) => cur.map((s) => (s.code === updated.code ? updated : s)));
-    if (updated.quantity !== prev?.quantity) {
+    try {
+      const updated = await api.updateSticker(code, qty);
+      setStickers((cur) => cur.map((s) => (s.code === updated.code ? updated : s)));
+      if (updated.quantity !== prev?.quantity) {
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        setToast({ code: updated.code, sectionName: updated.section_name, newQty: updated.quantity, removed: updated.quantity < (prev?.quantity ?? 0) });
+        toastTimer.current = setTimeout(() => setToast(null), 2000);
+      }
+    } catch {
       if (toastTimer.current) clearTimeout(toastTimer.current);
-      setToast({ code: updated.code, sectionName: updated.section_name, newQty: updated.quantity, removed: updated.quantity < (prev?.quantity ?? 0) });
-      toastTimer.current = setTimeout(() => setToast(null), 2000);
+      setToast({ code, sectionName: prev?.section_name ?? "", newQty: null, error: true });
+      toastTimer.current = setTimeout(() => setToast(null), 3000);
     }
   };
 

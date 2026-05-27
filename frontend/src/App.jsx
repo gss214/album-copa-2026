@@ -6,6 +6,8 @@ import Trocas from "./pages/Trocas";
 import Raras from "./pages/Raras";
 import Logs from "./pages/Logs";
 import Login from "./pages/Login";
+import Conquistas from "./pages/Conquistas";
+import UpdatePrompt from "./components/UpdatePrompt";
 
 function Navbar({ onLogout }) {
   const navClass = ({ isActive }) =>
@@ -29,6 +31,7 @@ function Navbar({ onLogout }) {
           <NavLink to="/trocas" className={navClass}>Trocas</NavLink>
           <NavLink to="/raras" className={navClass}>Raras</NavLink>
           <NavLink to="/logs" className={navClass}>Histórico</NavLink>
+          <NavLink to="/conquistas" className={navClass}>Conquistas</NavLink>
         </div>
         <button
           onClick={onLogout}
@@ -70,6 +73,10 @@ function BottomNav() {
       <NavLink to="/logs" className={itemClass}>
         <i className="bi bi-clock-history text-xl" />
         <span>Histórico</span>
+      </NavLink>
+      <NavLink to="/conquistas" className={itemClass}>
+        <i className="bi bi-trophy text-xl" />
+        <span>Conquistas</span>
       </NavLink>
     </nav>
   );
@@ -120,10 +127,12 @@ export default function App() {
             <Route path="/trocas" element={<Trocas />} />
             <Route path="/raras" element={<Raras />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/conquistas" element={<Conquistas />} />
           </Routes>
         </main>
         <BottomNav />
         <ScrollToTop />
+        <UpdatePrompt />
       </div>
     </BrowserRouter>
   );

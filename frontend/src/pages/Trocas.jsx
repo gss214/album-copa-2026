@@ -138,8 +138,8 @@ function CopyCard({ title, icon, iconColor, accentColor, items, count, buildText
 
 // ── Trocas ───────────────────────────────────────────────────────────────────
 export default function Trocas() {
-  const [trocas, setTrocas] = useState(null);
-  const [error,  setError]  = useState(null);
+  const [trocas,  setTrocas]  = useState(null);
+  const [error,   setError]   = useState(null);
 
   useEffect(() => {
     api.getTrocas()
@@ -147,10 +147,29 @@ export default function Trocas() {
       .catch((e) => setError(e.message));
   }, []);
 
-  const handleCopyAll = () => {
+  const [shared, setShared] = useState(false);
+
+  const buildAllText = () =>
+    buildFaltamText(trocas.faltam) + "\n\n" + buildRepetidaText(trocas.repetidas);
+
+  const handleShare = async () => {
     if (!trocas) return;
-    const text = buildFaltamText(trocas.faltam) + "\n\n" + buildRepetidaText(trocas.repetidas);
-    navigator.clipboard.writeText(text);
+    const text = buildAllText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+      } catch {
+        // user cancelled — do nothing
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        setError("Não foi possível copiar. Tente manualmente.");
+      }
+    }
   };
 
   return (
@@ -173,16 +192,15 @@ export default function Trocas() {
         </div>
         {trocas && (
           <button
-            onClick={handleCopyAll}
+            onClick={handleShare}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl font-semibold transition-all"
-            style={{
-              background: "rgba(37,211,102,0.12)",
-              color: "#25d366",
-              border: "1px solid rgba(37,211,102,0.25)",
-            }}
+            style={shared
+              ? { background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }
+              : { background: "rgba(37,211,102,0.12)", color: "#25d366", border: "1px solid rgba(37,211,102,0.25)" }
+            }
           >
-            <i className="bi bi-whatsapp text-base" />
-            Copiar tudo
+            <i className={`bi ${shared ? "bi-check2" : navigator.share ? "bi-share" : "bi-whatsapp"} text-base`} />
+            {shared ? "Copiado!" : "Compartilhar"}
           </button>
         )}
       </div>
