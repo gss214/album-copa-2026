@@ -348,8 +348,10 @@ def undo_log(log_id: int, db: Session = Depends(get_db)):
     sticker = db.query(models.Sticker).filter(models.Sticker.code == log.sticker_code).first()
     if not sticker:
         raise HTTPException(status_code=404, detail="Figurinha não encontrada")
-    if sticker.quantity < 0:
-        raise HTTPException(status_code=400, detail="Quantidade não pode ser negativa")
+    if log.quantity_before < 0:
+        raise HTTPException(status_code=400, detail="Log com quantidade inválida")
+    if sticker.quantity != log.quantity_after:
+        raise HTTPException(status_code=409, detail="Estado atual diverge do log; undo não é seguro")
     prev = sticker.quantity
     sticker.quantity = log.quantity_before
     db.add(models.StickerLog(

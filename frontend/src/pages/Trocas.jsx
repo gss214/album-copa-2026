@@ -162,9 +162,13 @@ export default function Trocas() {
         // user cancelled — do nothing
       }
     } else {
-      await navigator.clipboard.writeText(text);
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      try {
+        await navigator.clipboard.writeText(text);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        setError("Não foi possível copiar. Tente manualmente.");
+      }
     }
   };
 

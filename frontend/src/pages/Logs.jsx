@@ -144,9 +144,14 @@ export default function Logs() {
   useEffect(() => { fetchLogs(); }, []);
 
   const handleUndo = async (logId) => {
-    await api.undoLog(logId);
-    setLoading(true);
-    await fetchLogs();
+    try {
+      await api.undoLog(logId);
+      setLoading(true);
+      await fetchLogs();
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
   };
 
   const days = useMemo(() => {
