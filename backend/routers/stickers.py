@@ -334,6 +334,34 @@ def get_logs(
     ]
 
 
+class UndoResult(BaseModel):
+    code: str
+    quantity_before: int
+    quantity_after: int
+
+
+@router.post("/logs/{log_id}/undo", response_model=UndoResult)
+def undo_log(log_id: int, db: Session = Depends(get_db)):
+    log = db.query(models.StickerLog).filter(models.StickerLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Log não encontrado")
+    sticker = db.query(models.Sticker).filter(models.Sticker.code == log.sticker_code).first()
+    if not sticker:
+        raise HTTPException(status_code=404, detail="Figurinha não encontrada")
+    if sticker.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantidade não pode ser negativa")
+    prev = sticker.quantity
+    sticker.quantity = log.quantity_before
+    db.add(models.StickerLog(
+        sticker_code=sticker.code,
+        sticker_section_name=sticker.section_name,
+        quantity_before=prev,
+        quantity_after=log.quantity_before,
+    ))
+    db.commit()
+    return UndoResult(code=sticker.code, quantity_before=prev, quantity_after=log.quantity_before)
+
+
 @router.get("/trocas", response_model=TrocasOut)
 def get_trocas(db: Session = Depends(get_db)):
     all_stickers = (

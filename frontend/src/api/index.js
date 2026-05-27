@@ -43,4 +43,5 @@ export const api = {
   getStats: () => request("/stats"),
   getLogs: (limit = 200) => request(`/logs?limit=${limit}`),
   clearRepeated: () => request("/stickers/clear-repeated", { method: "POST" }),
+  undoLog: (id) => request(`/logs/${id}/undo`, { method: "POST" }),
 };
