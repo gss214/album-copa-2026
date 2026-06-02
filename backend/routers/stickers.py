@@ -4,10 +4,6 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from typing import List, Optional
 
-# Horário de Brasília é UTC-3 o ano todo (Brasil aboliu o horário de verão em 2019),
-# então um offset fixo evita depender de zoneinfo/tzdata.
-BR_TZ = timezone(timedelta(hours=-3))
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,6 +11,10 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import require_auth
+
+# Horário de Brasília é UTC-3 o ano todo (Brasil aboliu o horário de verão em 2019),
+# então um offset fixo evita depender de zoneinfo/tzdata.
+BR_TZ = timezone(timedelta(hours=-3))
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
