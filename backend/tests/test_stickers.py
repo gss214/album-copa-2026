@@ -235,3 +235,97 @@ def test_clear_repeated_empty(client, sticker_factory, h):
     r = client.post("/api/stickers/clear-repeated", headers=h)
     assert r.status_code == 200
     assert r.json()["cleared"] == 0
+
+
+# ── GET /stats ───────────────────────────────────────────────────────────────
+
+def test_stats_most_repeated_and_progress(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=1)
+    sticker_factory(code="BRA2", number="2", quantity=4, sort_order=101)
+    sticker_factory(code="BRA3", number="3", quantity=0, sort_order=102)
+    data = client.get("/api/stats", headers=h).json()
+    assert data["most_repeated"]["code"] == "BRA2"
+    assert data["most_repeated"]["quantity"] == 4
+    groups = {g["group"]: g for g in data["group_progress"]}
+    assert groups["Grupo E"]["coladas"] == 2
+    assert groups["Grupo E"]["total"] == 3
+
+
+def test_stats_top_and_bottom_teams(client, sticker_factory, h):
+    # Time A (Grupo E): 2/2 coladas → completo, não entra em top (incompletos)
+    sticker_factory(code="BRA1", quantity=1)
+    sticker_factory(code="BRA2", number="2", quantity=1, sort_order=101)
+    # Time B (Grupo A): 1/2 → 50%
+    sticker_factory(code="ARG1", section_code="ARG", section_name="Argentina",
+                    group_name="Grupo A", number="1", quantity=1, sort_order=200)
+    sticker_factory(code="ARG2", section_code="ARG", section_name="Argentina",
+                    group_name="Grupo A", number="2", quantity=0, sort_order=201)
+    # Time C (Grupo B): 0/2 → 0% (mais longe)
+    sticker_factory(code="CHI1", section_code="CHI", section_name="Chile",
+                    group_name="Grupo B", number="1", quantity=0, sort_order=300)
+    sticker_factory(code="CHI2", section_code="CHI", section_name="Chile",
+                    group_name="Grupo B", number="2", quantity=0, sort_order=301)
+    data = client.get("/api/stats", headers=h).json()
+    top_codes = [t["section_code"] for t in data["top_teams"]]
+    bottom_codes = [t["section_code"] for t in data["bottom_teams"]]
+    # incompletos ordenados por % desc: Argentina (50%) antes de Chile (0%)
+    assert top_codes[0] == "ARG"
+    assert "BRA" not in top_codes  # completo não entra
+    # mais longe primeiro
+    assert bottom_codes[0] == "CHI"
+
+
+def test_stats_excludes_fwc_and_cocacola_from_teams(client, sticker_factory, h):
+    sticker_factory(code="ARG1", section_code="ARG", section_name="Argentina",
+                    group_name="Grupo A", number="1", quantity=0, sort_order=200)
+    sticker_factory(code="FWC00", section_code="FWC", section_name="Página Inicial",
+                    group_name="FWC", number="00", quantity=0, sort_order=1)
+    sticker_factory(code="CC1", section_code="CC", section_name="Coca-Cola",
+                    group_name="Coca-Cola", number="1", quantity=0, sort_order=900)
+    data = client.get("/api/stats", headers=h).json()
+    codes = [t["section_code"] for t in data["bottom_teams"]]
+    assert "ARG" in codes
+    assert "FWC" not in codes
+    assert "CC" not in codes
+
+
+# ── GET /stats/activity ──────────────────────────────────────────────────────
+
+def test_activity_empty(client, h):
+    data = client.get("/api/stats/activity", headers=h).json()
+    assert data["today_coladas"] == 0
+    assert data["today_descoladas"] == 0
+    assert data["total_events"] == 0
+    assert data["last_activity"] is None
+    assert data["days_to_complete"] is None
+
+
+def test_activity_counts_coladas_and_descoladas(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    # colada (0→1)
+    client.patch("/api/stickers/BRA1", json={"quantity": 1}, headers=h)
+    # vira repetida (1→2) — não conta como colada nem descolada
+    client.patch("/api/stickers/BRA1", json={"quantity": 2}, headers=h)
+    # descolada (2→0)
+    client.patch("/api/stickers/BRA1", json={"quantity": 0}, headers=h)
+    data = client.get("/api/stats/activity", headers=h).json()
+    assert data["today_coladas"] == 1
+    assert data["today_descoladas"] == 1
+    assert data["week_coladas"] == 1
+    assert data["week_descoladas"] == 1
+    assert data["total_events"] == 3
+    assert data["last_activity"].endswith("Z")
+
+
+def test_activity_ignores_raras_logs(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    sticker_factory(code="RARA1", section_code="R1", section_name="Rara",
+                    group_name="Raras", number="Ouro", quantity=0, sort_order=999)
+    # colada normal (conta)
+    client.patch("/api/stickers/BRA1", json={"quantity": 1}, headers=h)
+    # colada de rara (NÃO conta — Raras fica fora do progresso principal)
+    client.patch("/api/stickers/RARA1", json={"quantity": 1}, headers=h)
+    data = client.get("/api/stats/activity", headers=h).json()
+    assert data["today_coladas"] == 1
+    assert data["total_events"] == 1
+    assert data["avg_per_day"] == 1.0

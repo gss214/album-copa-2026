@@ -41,6 +41,7 @@ export const api = {
   getSummary: () => request("/summary"),
   getTrocas: () => request("/trocas"),
   getStats: () => request("/stats"),
+  getActivity: () => request("/stats/activity"),
   getLogs: (limit = 200) => request(`/logs?limit=${limit}`),
   clearRepeated: () => request("/stickers/clear-repeated", { method: "POST" }),
   undoLog: (id) => request(`/logs/${id}/undo`, { method: "POST" }),

@@ -204,6 +204,7 @@ function StickerTile({ sticker, onUpdate, onlyMissing, withRepeated }) {
       onTouchCancel={cancelPress}
       disabled={loading || invisible}
       title={titleParts.join(" — ")}
+      style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", touchAction: "manipulation" }}
       className={`relative flex flex-col items-center justify-center rounded text-xs font-mono font-semibold transition-all select-none h-14 w-full gap-0.5 px-0.5 ${cls} ${invisible ? "invisible" : ""} ${isPressing ? "scale-90 ring-2 ring-amber-400/60" : ""}`}
     >
       {loading && (

@@ -16,24 +16,29 @@ FIFA World Cup 2026 sticker album tracker.
 album-copa-2026/
 ├── backend/
 │   ├── main.py          # FastAPI app + CORS + startup seed
-│   ├── models.py        # SQLAlchemy: Sticker
+│   ├── models.py        # SQLAlchemy: Sticker, StickerLog (change history w/ timestamp)
 │   ├── database.py      # SQLite engine + session
 │   ├── seed.py          # Populates all 994 stickers on first run
+│   ├── tests/           # pytest (conftest + test_auth, test_stickers)
 │   └── routers/
-│       └── stickers.py  # GET /stickers, PATCH /stickers/{code}, GET /summary, GET /trocas
+│       └── stickers.py  # CRUD + /summary, /stats, /stats/activity, /trocas, /logs
 ├── frontend/
 │   ├── components.json  # shadcn/ui config (New York style, Zinc base)
 │   ├── jsconfig.json    # Path alias @/* → src/*
 │   └── src/
-│       ├── api/         # fetch helpers (api.getStickers, updateSticker, getSummary, getTrocas)
+│       ├── api/         # fetch helpers (getStickers, updateSticker, getSummary, getStats, getActivity, getTrocas, getLogs, ...)
 │       ├── lib/
 │       │   ├── utils.js # cn() — clsx + tailwind-merge
 │       │   └── logos.js # section_code → /logos/*.png mapping
-│       ├── components/ui/ # shadcn/ui: Button, Card, Table, Input, Badge
+│       ├── components/
+│       │   ├── ui/          # shadcn/ui: Button, Card, Table, Input, Badge
+│       │   └── dashboard/   # shared Dashboard primitives (palette, SurfaceCard, AnimatedNumber) + cards (HighlightCard, GroupProgressBar, TeamRankList)
 │       └── pages/
-│           ├── Dashboard.jsx  # Stats + pie chart
+│           ├── Dashboard.jsx  # Metrics + donut, activity stats, highlights, team ranking, group progress
 │           ├── Album.jsx      # Visual sticker grid per team, click to mark
-│           └── Trocas.jsx     # Auto-generated trade lists for WhatsApp
+│           ├── Trocas.jsx     # Auto-generated trade lists for WhatsApp
+│           ├── Raras.jsx      # Rare stickers tracker
+│           └── Logs.jsx       # Change history with undo
 ├── logos/               # Source logo PNGs (copied to frontend/public/logos/ for serving)
 ├── docker-compose.yml
 └── CLAUDE.md
@@ -48,6 +53,21 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - Backend API docs: http://localhost:8000/docs
 
+## Testing & Lint (via Docker)
+
+The local toolchain may not match (repo targets Python 3.11 / Node 20), so run checks inside the containers:
+
+```bash
+# Backend tests (pytest) — installs test deps then runs the suite
+docker compose run --rm --no-deps backend sh -c "pip install -r requirements-test.txt && python -m pytest -q"
+
+# Frontend lint (eslint)
+docker compose build frontend
+docker compose run --rm --no-deps frontend npm run lint
+```
+
+Backend tests live in `backend/tests/` (`conftest.py` spins up a throwaway SQLite DB and overrides `get_db`). `requirements-test.txt` pins `pytest` + `httpx`.
+
 ## Album Structure (994 stickers total)
 
 - **FWC** — Página Inicial: FWC00–FWC08 (9 stickers)
@@ -61,10 +81,18 @@ Seed runs automatically on backend startup (`seed.py`). If the DB already has ro
 
 ```
 GET   /api/stickers                    List stickers (query: group_name, section_code)
-PATCH /api/stickers/{code}             Update quantity { quantity: N }
-GET   /api/summary                     Dashboard stats (total, coladas, faltam, percentual, repetidas)
+PATCH /api/stickers/{code}             Update quantity { quantity: N } (logs the change)
+PATCH /api/stickers/bulk               Bulk update { items: [{code, quantity}] }
+POST  /api/stickers/clear-repeated     Reset all quantity>1 back to 1
+GET   /api/summary                     Totals (total, coladas, faltam, percentual, repetidas)
+GET   /api/stats                       Highlights + group/team progress + top_teams/bottom_teams (10 closest/farthest)
+GET   /api/stats/activity              Activity from StickerLog: coladas/descoladas today & last 7d (BRT/UTC-3), avg/day, days_to_complete, last_activity
 GET   /api/trocas                      Trade lists (faltam: string[], repetidas: string[])
+GET   /api/logs                        Change history (query: limit 1–500)
+POST  /api/logs/{id}/undo              Revert a logged change
 ```
+
+Every quantity change (PATCH single/bulk, clear-repeated, undo) writes a `StickerLog` row with `created_at` (UTC). Daily stats convert to BRT via a fixed UTC-3 offset (Brazil has no DST since 2019) — no `zoneinfo`/`tzdata` needed.
 
 ## Frontend Design System (shadcn/ui)
 
