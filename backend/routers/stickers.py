@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
+from math import ceil
 from typing import List, Optional
+
+# Horário de Brasília é UTC-3 o ano todo (Brasil aboliu o horário de verão em 2019),
+# então um offset fixo evita depender de zoneinfo/tzdata.
+BR_TZ = timezone(timedelta(hours=-3))
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -97,6 +102,19 @@ class StatsOut(BaseModel):
     closest_team: Optional[TeamProgress]
     closest_group: Optional[GroupProgress]
     group_progress: List[GroupProgress]
+    top_teams: List[TeamProgress] = []
+    bottom_teams: List[TeamProgress] = []
+
+
+class ActivityOut(BaseModel):
+    today_coladas: int
+    today_descoladas: int
+    week_coladas: int
+    week_descoladas: int
+    avg_per_day: float
+    days_to_complete: Optional[int]
+    last_activity: Optional[str]
+    total_events: int
 
 
 def _to_out(s: models.Sticker) -> StickerOut:
@@ -263,12 +281,34 @@ def get_stats(db: Session = Depends(get_db)):
         if s.quantity >= 1:
             team_map[key]["coladas"] += 1
 
-    incomplete_teams = [t for t in team_map.values() if t["coladas"] < t["total"]]
+    # Apenas os 48 times (exclui FWC e Coca-Cola)
+    real_teams = [t for t in team_map.values() if t["group_name"] not in ("FWC", "Coca-Cola")]
+
+    def _team_progress(t: dict) -> TeamProgress:
+        return TeamProgress(
+            pct=round(t["coladas"] / t["total"] * 100, 1) if t["total"] else 0.0,
+            **t,
+        )
+
+    incomplete_teams = [t for t in real_teams if t["coladas"] < t["total"]]
     closest = max(incomplete_teams, key=lambda t: t["coladas"] / t["total"] if t["total"] else 0, default=None)
-    closest_team = (
-        TeamProgress(pct=round(closest["coladas"] / closest["total"] * 100, 1), **closest)
-        if closest else None
-    )
+    closest_team = _team_progress(closest) if closest else None
+
+    # 10 mais perto de completar (incompletos, maior %) e 10 mais longe (menor %)
+    top_teams = [
+        _team_progress(t)
+        for t in sorted(
+            incomplete_teams,
+            key=lambda t: (-(t["coladas"] / t["total"] if t["total"] else 0), t["section_name"]),
+        )[:10]
+    ]
+    bottom_teams = [
+        _team_progress(t)
+        for t in sorted(
+            real_teams,
+            key=lambda t: (t["coladas"] / t["total"] if t["total"] else 0, t["section_name"]),
+        )[:10]
+    ]
 
     incomplete_groups = [g for g in group_progress if g.coladas < g.total]
     closest_group = max(incomplete_groups, key=lambda g: g.pct, default=None)
@@ -278,6 +318,69 @@ def get_stats(db: Session = Depends(get_db)):
         closest_team=closest_team,
         closest_group=closest_group,
         group_progress=group_progress,
+        top_teams=top_teams,
+        bottom_teams=bottom_teams,
+    )
+
+
+@router.get("/stats/activity", response_model=ActivityOut)
+def get_activity(db: Session = Depends(get_db)):
+    now = datetime.now(BR_TZ)
+    today = now.date()
+    week_start = today - timedelta(days=6)  # janela de 7 dias incluindo hoje
+
+    logs = db.query(models.StickerLog).all()
+
+    today_coladas = today_descoladas = 0
+    week_coladas = week_descoladas = 0
+    total_coladas = 0
+    active_days: set = set()
+    last_dt = None
+
+    for log in logs:
+        created = log.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        local_day = created.astimezone(BR_TZ).date()
+
+        is_colada = log.quantity_before == 0 and log.quantity_after >= 1
+        is_descolada = log.quantity_before >= 1 and log.quantity_after == 0
+
+        if is_colada:
+            total_coladas += 1
+            active_days.add(local_day)
+            if local_day == today:
+                today_coladas += 1
+            if local_day >= week_start:
+                week_coladas += 1
+        if is_descolada:
+            if local_day == today:
+                today_descoladas += 1
+            if local_day >= week_start:
+                week_descoladas += 1
+
+        if last_dt is None or created > last_dt:
+            last_dt = created
+
+    avg_per_day = round(total_coladas / len(active_days), 1) if active_days else 0.0
+
+    faltam = (
+        db.query(models.Sticker)
+        .filter(models.Sticker.group_name != "Raras")
+        .filter(models.Sticker.quantity == 0)
+        .count()
+    )
+    days_to_complete = ceil(faltam / avg_per_day) if avg_per_day > 0 and faltam > 0 else None
+
+    return ActivityOut(
+        today_coladas=today_coladas,
+        today_descoladas=today_descoladas,
+        week_coladas=week_coladas,
+        week_descoladas=week_descoladas,
+        avg_per_day=avg_per_day,
+        days_to_complete=days_to_complete,
+        last_activity=_utc_iso(last_dt) if last_dt else None,
+        total_events=len(logs),
     )
 
 
