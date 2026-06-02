@@ -23,6 +23,25 @@ body {
   font-feature-settings: "tnum" on, "lnum" on;
 }
 
+/* App-like behaviour: no long-press callout / text selection on mobile.
+   (Evita o menu nativo Copiar/Compartilhar ao segurar uma figurinha.)
+   Inputs e textareas continuam selecionáveis. */
+* {
+  -webkit-touch-callout: none;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 body {
   background-color: #0d1b2a;
   color: #e8d5b0;
