@@ -315,3 +315,17 @@ def test_activity_counts_coladas_and_descoladas(client, sticker_factory, h):
     assert data["week_descoladas"] == 1
     assert data["total_events"] == 3
     assert data["last_activity"].endswith("Z")
+
+
+def test_activity_ignores_raras_logs(client, sticker_factory, h):
+    sticker_factory(code="BRA1", quantity=0)
+    sticker_factory(code="RARA1", section_code="R1", section_name="Rara",
+                    group_name="Raras", number="Ouro", quantity=0, sort_order=999)
+    # colada normal (conta)
+    client.patch("/api/stickers/BRA1", json={"quantity": 1}, headers=h)
+    # colada de rara (NÃO conta — Raras fica fora do progresso principal)
+    client.patch("/api/stickers/RARA1", json={"quantity": 1}, headers=h)
+    data = client.get("/api/stats/activity", headers=h).json()
+    assert data["today_coladas"] == 1
+    assert data["total_events"] == 1
+    assert data["avg_per_day"] == 1.0

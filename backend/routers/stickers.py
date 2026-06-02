@@ -329,7 +329,20 @@ def get_activity(db: Session = Depends(get_db)):
     today = now.date()
     week_start = today - timedelta(days=6)  # janela de 7 dias incluindo hoje
 
-    logs = db.query(models.StickerLog).all()
+    # Raras ficam fora do progresso principal (igual a /summary, /stats, /trocas),
+    # então logs de figurinhas raras não contam para a atividade nem para a estimativa.
+    raras_codes = {
+        code
+        for (code,) in db.query(models.Sticker.code)
+        .filter(models.Sticker.group_name == "Raras")
+        .all()
+    }
+
+    logs = [
+        log
+        for log in db.query(models.StickerLog).all()
+        if log.sticker_code not in raras_codes
+    ]
 
     today_coladas = today_descoladas = 0
     week_coladas = week_descoladas = 0
