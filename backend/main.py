@@ -11,17 +11,23 @@ from seed import seed_stickers, seed_rare_stickers, seed_player_names, sync_fwc_
 from routers import stickers
 from routers.auth_router import router as auth_router
 
-models.Base.metadata.create_all(bind=engine)
+# Schema creation and seeding are per-process bootstrap work. Under a long-lived server
+# they run once, but on serverless they would run on every cold start — sync_fwc_names
+# even commits writes. Set RUN_DB_INIT=0 where the DB is already provisioned.
+RUN_DB_INIT = os.getenv("RUN_DB_INIT", "1") == "1"
 
-# Add player_name column to existing SQLite DBs that predate this field.
-# (On Postgres, create_all above already builds the full schema — and PRAGMA is SQLite-only.)
-if DATABASE_URL.startswith("sqlite"):
-    with engine.connect() as _conn:
-        from sqlalchemy import text as _text
-        cols = [r[1] for r in _conn.execute(_text("PRAGMA table_info(stickers)")).fetchall()]
-        if "player_name" not in cols:
-            _conn.execute(_text("ALTER TABLE stickers ADD COLUMN player_name TEXT DEFAULT ''"))
-            _conn.commit()
+if RUN_DB_INIT:
+    models.Base.metadata.create_all(bind=engine)
+
+    # Add player_name column to existing SQLite DBs that predate this field.
+    # (On Postgres, create_all above already builds the full schema — and PRAGMA is SQLite-only.)
+    if DATABASE_URL.startswith("sqlite"):
+        with engine.connect() as _conn:
+            from sqlalchemy import text as _text
+            cols = [r[1] for r in _conn.execute(_text("PRAGMA table_info(stickers)")).fetchall()]
+            if "player_name" not in cols:
+                _conn.execute(_text("ALTER TABLE stickers ADD COLUMN player_name TEXT DEFAULT ''"))
+                _conn.commit()
 
 app = FastAPI(title="Album Copa 2026 API")
 
@@ -42,6 +48,8 @@ app.include_router(stickers.router, prefix="/api")
 
 @app.on_event("startup")
 def on_startup():
+    if not RUN_DB_INIT:
+        return
     db = SessionLocal()
     try:
         seed_stickers(db)
