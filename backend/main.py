@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, SessionLocal
+from database import engine, SessionLocal, DATABASE_URL
 import models
 from seed import seed_stickers, seed_rare_stickers, seed_player_names, sync_fwc_names
 from routers import stickers
@@ -13,13 +13,15 @@ from routers.auth_router import router as auth_router
 
 models.Base.metadata.create_all(bind=engine)
 
-# Add player_name column to existing DBs that predate this field.
-with engine.connect() as _conn:
-    from sqlalchemy import text as _text
-    cols = [r[1] for r in _conn.execute(_text("PRAGMA table_info(stickers)")).fetchall()]
-    if "player_name" not in cols:
-        _conn.execute(_text("ALTER TABLE stickers ADD COLUMN player_name TEXT DEFAULT ''"))
-        _conn.commit()
+# Add player_name column to existing SQLite DBs that predate this field.
+# (On Postgres, create_all above already builds the full schema — and PRAGMA is SQLite-only.)
+if DATABASE_URL.startswith("sqlite"):
+    with engine.connect() as _conn:
+        from sqlalchemy import text as _text
+        cols = [r[1] for r in _conn.execute(_text("PRAGMA table_info(stickers)")).fetchall()]
+        if "player_name" not in cols:
+            _conn.execute(_text("ALTER TABLE stickers ADD COLUMN player_name TEXT DEFAULT ''"))
+            _conn.commit()
 
 app = FastAPI(title="Album Copa 2026 API")
 
